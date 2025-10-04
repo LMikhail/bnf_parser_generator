@@ -79,7 +79,7 @@ executable("debug_prolog") {
 # }
 
 # Тесты (если включены)
-if (bnf_engine_enable_tests) {
+if (bnf_parser_enable_tests) {
   executable("basic_test") {
     testonly = true
     sources = [ "tests/basic_test.cpp" ]
