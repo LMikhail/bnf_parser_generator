@@ -1,0 +1,42 @@
+# Build configuration for BNF Parser
+
+# Compiler defaults configuration
+config("compiler_defaults") {
+  # C++ standard
+  cflags = [ "-std=c++17" ]
+  cflags_cc = [ "-std=c++17" ]
+  
+  # Warning flags
+  cflags += [
+    "-Wall",
+    "-Wextra",
+    "-Wpedantic",
+    "-Werror",
+  ]
+  
+  cflags_cc += [
+    "-Wall",
+    "-Wextra", 
+    "-Wpedantic",
+    "-Werror",
+  ]
+  
+  # Debug/Release specific flags
+  if (is_debug) {
+    cflags += [ "-g", "-O0", "-DDEBUG" ]
+    cflags_cc += [ "-g", "-O0", "-DDEBUG" ]
+  } else {
+    cflags += [ "-O2", "-DNDEBUG" ]
+    cflags_cc += [ "-O2", "-DNDEBUG" ]
+  }
+  
+  # Unicode support
+  if (bnf_parser_enable_unicode) {
+    defines = [ "BNF_PARSER_ENABLE_UNICODE=1" ]
+  }
+  
+  # Include directories
+  include_dirs = [
+    "//include",
+  ]
+}
