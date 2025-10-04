@@ -1,0 +1,42 @@
+# BNF Grammar for JSON (JavaScript Object Notation)
+# RFC 7159 compliant
+
+# Whitespace
+WHITESPACE ::= (' ' | '\t' | '\n' | '\r')+
+
+# Basic tokens
+STRING ::= '"' json_char* '"'
+NUMBER ::= '-'? ('0' | non_zero_digit digit*) ('.' digit+)? (('e' | 'E') ('+' | '-')? digit+)?
+BOOLEAN_TRUE ::= 'true'
+BOOLEAN_FALSE ::= 'false'
+NULL ::= 'null'
+
+# Structural tokens
+LEFT_BRACE ::= '{'
+RIGHT_BRACE ::= '}'
+LEFT_BRACKET ::= '['
+RIGHT_BRACKET ::= ']'
+COMMA ::= ','
+COLON ::= ':'
+
+# Character classes
+digit ::= '0'..'9'
+non_zero_digit ::= '1'..'9'
+hex_digit ::= digit | 'a'..'f' | 'A'..'F'
+
+# JSON string characters
+json_char ::= unescaped_char | escape_sequence
+unescaped_char ::= '\u0020'..'\u0021' | '\u0023'..'\u005B' | '\u005D'..'\u10FFFF'
+escape_sequence ::= '\\' ('"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't' | unicode_escape)
+unicode_escape ::= 'u' hex_digit hex_digit hex_digit hex_digit
+
+# Grammar rules
+json ::= value
+value ::= object | array | string | number | boolean | null
+object ::= LEFT_BRACE (member (COMMA member)*)? RIGHT_BRACE
+member ::= string COLON value
+array ::= LEFT_BRACKET (value (COMMA value)*)? RIGHT_BRACKET
+string ::= STRING
+number ::= NUMBER
+boolean ::= BOOLEAN_TRUE | BOOLEAN_FALSE
+null ::= NULL

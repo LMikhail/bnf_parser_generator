@@ -1,0 +1,246 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  BUILD_TYPE: debug
+  CXX_STANDARD: 17
+
+jobs:
+  # Проверка качества кода
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            git \
+            curl
+
+      - name: Install GN
+        run: |
+          curl -L https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-amd64/+/latest -o gn.zip
+          unzip gn.zip
+          sudo mv gn /usr/local/bin/
+          gn --version
+
+      - name: Check code formatting
+        run: |
+          # Проверка стиля кода (можно добавить clang-format)
+          echo "Checking code style..."
+          find src include -name "*.cpp" -o -name "*.hpp" | head -10
+
+      - name: Check commit message format
+        if: github.event_name == 'push'
+        run: |
+          # Проверка формата коммитов
+          git log --format="%s" -1 | grep -E "^(feat|fix|docs|style|refactor|test|build|chore)(\(.+\))?: .+"
+
+  # Сборка и тестирование
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build_type: [debug, release]
+        compiler: [gcc, clang]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            git \
+            curl
+
+      - name: Install GN
+        run: |
+          curl -L https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-amd64/+/latest -o gn.zip
+          unzip gn.zip
+          sudo mv gn /usr/local/bin/
+          gn --version
+
+      - name: Install compiler
+        run: |
+          if [ "${{ matrix.compiler }}" = "clang" ]; then
+            sudo apt-get install -y clang
+          fi
+
+      - name: Configure build
+        run: |
+          # Создаем args.gn для сборки
+          mkdir -p out/${{ matrix.build_type }}
+          cat > out/${{ matrix.build_type }}/args.gn << EOF
+          is_debug = ${{ matrix.build_type == 'debug' }}
+          bnf_parser_enable_unicode = true
+          bnf_parser_enable_tests = true
+          bnf_parser_enable_examples = true
+          EOF
+
+      - name: Generate build files
+        run: |
+          gn gen out/${{ matrix.build_type }}
+
+      - name: Build project
+        run: |
+          ninja -C out/${{ matrix.build_type }} all
+
+      - name: Run tests
+        run: |
+          # Запуск тестов если они есть
+          if [ -f "out/${{ matrix.build_type }}/basic_test" ]; then
+            out/${{ matrix.build_type }}/basic_test
+          fi
+
+      - name: Build examples
+        run: |
+          # Сборка примеров
+          ninja -C out/${{ matrix.build_type }} examples
+
+      - name: Test examples
+        run: |
+          # Запуск простых примеров для проверки
+          if [ -f "out/${{ matrix.build_type }}/simple_demo" ]; then
+            echo "Testing simple_demo..."
+            out/${{ matrix.build_type }}/simple_demo || true
+          fi
+
+  # Проверка DCO (Developer Certificate of Origin)
+  dco-check:
+    name: DCO Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check DCO
+        run: |
+          # Проверяем что все коммиты подписаны
+          git log --format='%H %s' -1 | grep -q 'Signed-off-by:' || {
+            echo "❌ Последний коммит не подписан"
+            exit 1
+          }
+          echo "✅ DCO проверка пройдена"
+
+  # Создание релиза
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    needs: [lint, build-and-test, dco-check]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            git \
+            curl
+
+      - name: Install GN
+        run: |
+          curl -L https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-amd64/+/latest -o gn.zip
+          unzip gn.zip
+          sudo mv gn /usr/local/bin/
+
+      - name: Build release
+        run: |
+          mkdir -p out/release
+          cat > out/release/args.gn << EOF
+          is_debug = false
+          bnf_parser_enable_unicode = true
+          bnf_parser_enable_tests = true
+          bnf_parser_enable_examples = true
+          EOF
+          gn gen out/release
+          ninja -C out/release all
+
+      - name: Create release artifacts
+        run: |
+          mkdir -p artifacts
+          # Копируем собранные файлы
+          cp -r out/release/* artifacts/ 2>/dev/null || true
+          # Создаем архив
+          tar -czf bnf-parser-${{ github.event.release.tag_name }}.tar.gz artifacts/
+          ls -la *.tar.gz
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bnf-parser-${{ github.event.release.tag_name }}
+          path: |
+            *.tar.gz
+            artifacts/
+
+  # Автоматический release
+  auto-release:
+    name: Auto Release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ninja-build \
+            git \
+            curl
+
+      - name: Check for release needed
+        id: check-release
+        run: |
+          # Проверяем есть ли коммиты, требующие release
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          COMMITS_SINCE_TAG=$(git log --oneline $LAST_TAG..HEAD 2>/dev/null || git log --oneline)
+          
+          if echo "$COMMITS_SINCE_TAG" | grep -q "feat:\|fix:\|BREAKING CHANGE:"; then
+            echo "release_needed=true" >> $GITHUB_OUTPUT
+            echo "✅ Найдены коммиты, требующие release"
+          else
+            echo "release_needed=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Нет коммитов, требующих release"
+          fi
+
+      - name: Run auto-release
+        if: steps.check-release.outputs.release_needed == 'true'
+        run: |
+          # Запускаем автоматический release
+          chmod +x scripts/auto-release.sh
+          ./scripts/auto-release.sh

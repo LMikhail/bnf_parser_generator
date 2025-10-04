@@ -1,0 +1,87 @@
+# BNF Grammar for Clojure (EDN - Extensible Data Notation)
+# Supports all EDN data types and Clojure-specific constructs
+
+# Whitespace and Comments
+WHITESPACE ::= (' ' | '\t' | '\n' | '\r' | ',')+
+LINE_COMMENT ::= ';' [^\n]* '\n'?
+DISCARD ::= '#_'
+
+# Basic tokens
+SYMBOL ::= symbol_start symbol_char*
+KEYWORD ::= ':' symbol_char+
+NUMBER ::= '-'? (integer | decimal | ratio | scientific)
+STRING ::= '"' ([^"\\] | escape_sequence)* '"'
+CHARACTER ::= '\\' (named_char | unicode_char | any_char)
+BOOLEAN ::= 'true' | 'false'
+NIL ::= 'nil'
+
+# Collections
+LEFT_PAREN ::= '('
+RIGHT_PAREN ::= ')'
+LEFT_BRACKET ::= '['
+RIGHT_BRACKET ::= ']'
+LEFT_BRACE ::= '{'
+RIGHT_BRACE ::= '}'
+SET_PREFIX ::= '#{'
+
+# Special forms
+QUOTE ::= "'"
+SYNTAX_QUOTE ::= '`'
+UNQUOTE ::= '~'
+UNQUOTE_SPLICING ::= '~@'
+DEREF ::= '@'
+META ::= '^'
+VAR_QUOTE ::= '#\''
+REGEX ::= '#"' ([^"\\] | escape_sequence)* '"'
+TAGGED_LITERAL ::= '#' symbol
+
+# Character classes
+symbol_start ::= letter | symbol_special
+symbol_char ::= letter | digit | symbol_special
+letter ::= 'a'..'z' | 'A'..'Z'
+digit ::= '0'..'9'
+symbol_special ::= '*' | '+' | '!' | '-' | '_' | '?' | '$' | '%' | '&' | '=' | '<' | '>' | '/' | '.'
+
+# Number formats
+integer ::= digit+
+decimal ::= digit+ '.' digit+
+ratio ::= integer '/' integer
+scientific ::= (integer | decimal) ('e' | 'E') ('+' | '-')? integer
+
+# Character formats
+named_char ::= 'newline' | 'space' | 'tab' | 'return' | 'backspace' | 'formfeed'
+unicode_char ::= 'u' hex_digit hex_digit hex_digit hex_digit
+any_char ::= .
+hex_digit ::= digit | 'a'..'f' | 'A'..'F'
+
+# Escape sequences
+escape_sequence ::= '\\' ('"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't' | unicode_escape)
+unicode_escape ::= 'u' hex_digit hex_digit hex_digit hex_digit
+
+# Grammar rules
+program ::= form*
+form ::= literal | collection | tagged_form | reader_macro
+literal ::= number | string | character | keyword | symbol | boolean | nil
+collection ::= list | vector | map | set
+list ::= LEFT_PAREN form* RIGHT_PAREN
+vector ::= LEFT_BRACKET form* RIGHT_BRACKET
+map ::= LEFT_BRACE (form form)* RIGHT_BRACE
+set ::= SET_PREFIX form* RIGHT_BRACE
+tagged_form ::= TAGGED_LITERAL form
+reader_macro ::= quote_form | syntax_quote_form | unquote_form | deref_form | meta_form | var_quote_form | regex_form | discard_form
+quote_form ::= QUOTE form
+syntax_quote_form ::= SYNTAX_QUOTE form
+unquote_form ::= (UNQUOTE | UNQUOTE_SPLICING) form
+deref_form ::= DEREF form
+meta_form ::= META form form
+var_quote_form ::= VAR_QUOTE form
+regex_form ::= REGEX
+discard_form ::= DISCARD form
+
+number ::= NUMBER
+string ::= STRING
+character ::= CHARACTER
+keyword ::= KEYWORD
+symbol ::= SYMBOL
+boolean ::= BOOLEAN
+nil ::= NIL

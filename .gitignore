@@ -1,0 +1,56 @@
+# Build outputs
+out/
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Russian documentation (source files, not tracked in Git)
+docs/ru/
+
+# Internal workflow documentation (not public)
+docs/workflow/
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Debug files
+debug_*
+*.debug
+
+# Test outputs
+test_results/
+coverage/
+
+# Dependencies (if any)
+deps/
+third_party/
+
+# Generated documentation
+docs/generated/

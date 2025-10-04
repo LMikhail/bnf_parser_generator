@@ -1,0 +1,33 @@
+# Build configuration for BNF Parser
+
+# Declare build arguments
+declare_args() {
+  # Debug or release build
+  is_debug = true
+  
+  # BNF Parser specific options
+  bnf_parser_enable_unicode = true
+  bnf_parser_enable_tests = true
+  bnf_parser_enable_examples = true
+}
+
+# Set the default toolchain
+set_default_toolchain("//toolchain:gcc")
+
+# Default configs applied to all targets
+default_compiler_configs = [
+  "//build:compiler_defaults",
+]
+
+# Set default configs for all target types
+set_defaults("executable") {
+  configs = default_compiler_configs
+}
+
+set_defaults("static_library") {
+  configs = default_compiler_configs
+}
+
+set_defaults("shared_library") {
+  configs = default_compiler_configs
+}

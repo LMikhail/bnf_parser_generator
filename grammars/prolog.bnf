@@ -1,0 +1,65 @@
+# BNF Grammar for Prolog
+# Supports facts, rules, queries, and basic Prolog constructs
+
+# Whitespace and Comments
+WHITESPACE ::= (' ' | '\t' | '\n' | '\r')+
+LINE_COMMENT ::= '%' [^\n]* '\n'
+BLOCK_COMMENT ::= '/*' (.*?) '*/'
+
+# Basic tokens
+ATOM ::= lowercase (alphanumeric | '_')*
+VARIABLE ::= (uppercase | '_') (alphanumeric | '_')*
+NUMBER ::= '-'? digit+ ('.' digit+)?
+STRING ::= '"' ([^"\\] | '\\' .)* '"'
+QUOTED_ATOM ::= "'" ([^'\\] | '\\' .)* "'"
+
+# Punctuation
+LEFT_PAREN ::= '('
+RIGHT_PAREN ::= ')'
+LEFT_BRACKET ::= '['
+RIGHT_BRACKET ::= ']'
+DOT ::= '.'
+COMMA ::= ','
+PIPE ::= '|'
+
+# Operators (in precedence order)
+UNIFY ::= '='
+NOT_UNIFY ::= '\\='
+IS ::= 'is'
+RULE_OP ::= ':-'
+GREATER_EQUAL ::= '>='
+LESS_EQUAL ::= '=<'
+GREATER ::= '>'
+LESS ::= '<'
+EQUAL ::= '=='
+NOT_EQUAL ::= '\\=='
+PLUS ::= '+'
+MINUS ::= '-'
+MULTIPLY ::= '*'
+DIVIDE ::= '/'
+MODULO ::= 'mod'
+POWER ::= '**'
+CUT ::= '!'
+
+# Character classes
+lowercase ::= 'a'..'z'
+uppercase ::= 'A'..'Z'
+digit ::= '0'..'9'
+alphanumeric ::= lowercase | uppercase | digit
+
+# Grammar rules
+program ::= clause*
+clause ::= fact | rule | query
+fact ::= term DOT
+rule ::= term RULE_OP body DOT
+query ::= '?-' body DOT
+body ::= term (COMMA term)*
+term ::= atom | variable | number | string | compound | list
+compound ::= ATOM LEFT_PAREN args RIGHT_PAREN
+args ::= term (COMMA term)*
+list ::= LEFT_BRACKET list_elements RIGHT_BRACKET
+list_elements ::= (term (COMMA term)* (PIPE term)?)?
+atom ::= ATOM | QUOTED_ATOM
+variable ::= VARIABLE
+number ::= NUMBER
+string ::= STRING

@@ -1,0 +1,227 @@
+# GitLab CI/CD Pipeline для BNF Parser
+
+variables:
+  BUILD_TYPE: "debug"
+  CXX_STANDARD: "17"
+  NINJA_JOBS: "4"
+
+stages:
+  - lint
+  - build
+  - test
+  - release
+
+# Кэширование для ускорения сборки
+cache:
+  paths:
+    - out/
+    - .gn/
+
+# Базовый образ с необходимыми зависимостями
+.base_image: &base_image
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update
+    - apt-get install -y build-essential ninja-build git curl
+    - |
+      # Установка GN
+      curl -L https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-amd64/+/latest -o gn.zip
+      unzip gn.zip
+      mv gn /usr/local/bin/
+      gn --version
+
+# Проверка качества кода
+lint:
+  <<: *base_image
+  stage: lint
+  script:
+    - echo "🔍 Проверка качества кода..."
+    - |
+      # Проверка стиля кода
+      find src include -name "*.cpp" -o -name "*.hpp" | head -10
+    - |
+      # Проверка формата коммитов (только для push)
+      if [ "$CI_PIPELINE_SOURCE" = "push" ]; then
+        git log --format="%s" -1 | grep -E "^(feat|fix|docs|style|refactor|test|build|chore)(\(.+\))?: .+" || {
+          echo "❌ Неправильный формат коммита"
+          exit 1
+        }
+        echo "✅ Формат коммита корректен"
+      fi
+    - echo "✅ Проверка качества кода завершена"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Сборка Debug
+build:debug:
+  <<: *base_image
+  stage: build
+  script:
+    - echo "🔨 Сборка Debug версии..."
+    - |
+      # Создаем args.gn для debug сборки
+      mkdir -p out/debug
+      cat > out/debug/args.gn << EOF
+      is_debug = true
+      bnf_parser_enable_unicode = true
+      bnf_parser_enable_tests = true
+      bnf_parser_enable_examples = true
+      EOF
+    - gn gen out/debug
+    - ninja -C out/debug all -j$NINJA_JOBS
+    - echo "✅ Debug сборка завершена"
+  artifacts:
+    paths:
+      - out/debug/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Сборка Release
+build:release:
+  <<: *base_image
+  stage: build
+  script:
+    - echo "🔨 Сборка Release версии..."
+    - |
+      # Создаем args.gn для release сборки
+      mkdir -p out/release
+      cat > out/release/args.gn << EOF
+      is_debug = false
+      bnf_parser_enable_unicode = true
+      bnf_parser_enable_tests = true
+      bnf_parser_enable_examples = true
+      EOF
+    - gn gen out/release
+    - ninja -C out/release all -j$NINJA_JOBS
+    - echo "✅ Release сборка завершена"
+  artifacts:
+    paths:
+      - out/release/
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "tag"
+
+# Тестирование
+test:debug:
+  <<: *base_image
+  stage: test
+  dependencies:
+    - build:debug
+  script:
+    - echo "🧪 Запуск тестов..."
+    - |
+      # Запуск unit тестов
+      if [ -f "out/debug/basic_test" ]; then
+        echo "Запуск basic_test..."
+        out/debug/basic_test
+      fi
+    - |
+      # Запуск примеров для проверки
+      if [ -f "out/debug/simple_demo" ]; then
+        echo "Тестирование simple_demo..."
+        out/debug/simple_demo || true
+      fi
+    - |
+      # Проверка отладочных программ
+      for debug_prog in out/debug/debug_*; do
+        if [ -f "$debug_prog" ] && [ -x "$debug_prog" ]; then
+          echo "Тестирование $(basename $debug_prog)..."
+          $debug_prog || true
+        fi
+      done
+    - echo "✅ Тестирование завершено"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# Проверка DCO
+dco:check:
+  <<: *base_image
+  stage: test
+  script:
+    - echo "🔐 Проверка DCO..."
+    - |
+      # Проверяем что коммиты подписаны
+      git log --format='%H %s' -1 | grep -q 'Signed-off-by:' || {
+        echo "❌ Коммит не подписан"
+        exit 1
+      }
+      echo "✅ DCO проверка пройдена"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+# Создание релиза
+release:
+  <<: *base_image
+  stage: release
+  dependencies:
+    - build:release
+  script:
+    - echo "🚀 Создание релиза..."
+    - |
+      # Создаем архив с релизом
+      mkdir -p artifacts
+      cp -r out/release/* artifacts/ 2>/dev/null || true
+      cp -r docs/ artifacts/ 2>/dev/null || true
+      cp README.md artifacts/ 2>/dev/null || true
+    - |
+      # Создаем архив
+      VERSION=${CI_COMMIT_TAG:-$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")}
+      tar -czf bnf-parser-${VERSION}.tar.gz artifacts/
+      ls -la *.tar.gz
+    - echo "✅ Релиз создан"
+  artifacts:
+    paths:
+      - "*.tar.gz"
+    expire_in: never
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+# Автоматический release
+auto:release:
+  <<: *base_image
+  stage: release
+  script:
+    - echo "🤖 Автоматический release..."
+    - |
+      # Проверяем нужен ли release
+      LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+      COMMITS_SINCE_TAG=$(git log --oneline $LAST_TAG..HEAD 2>/dev/null || git log --oneline)
+      
+      if echo "$COMMITS_SINCE_TAG" | grep -q "feat:\|fix:\|BREAKING CHANGE:"; then
+        echo "✅ Найдены коммиты, требующие release"
+        # Здесь можно добавить логику автоматического release
+        # Например, создание тега и релиза
+      else
+        echo "ℹ️ Нет коммитов, требующих release"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+
+# Уведомления
+notify:success:
+  stage: release
+  script:
+    - echo "✅ Pipeline успешно завершен"
+    - echo "Время: $(date)"
+    - echo "Коммит: $CI_COMMIT_SHA"
+    - echo "Ветка: $CI_COMMIT_REF_NAME"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+  when: on_success
+
+notify:failure:
+  stage: release
+  script:
+    - echo "❌ Pipeline завершился с ошибкой"
+    - echo "Время: $(date)"
+    - echo "Коммит: $CI_COMMIT_SHA"
+    - echo "Ветка: $CI_COMMIT_REF_NAME"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+  when: on_failure
