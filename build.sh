@@ -270,7 +270,7 @@ main() {
             ;;
     esac
     
-    print_success "Готово! 🎉"
+    print_success "Готово"
 }
 
 # Запуск

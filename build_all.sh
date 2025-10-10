@@ -61,7 +61,7 @@ build_variant() {
     if $BUILD_CMD; then
         print_success "✅ $variant собран успешно"
     else
-        print_error "❌ Ошибка сборки $variant"
+        print_error "Ошибка сборки $variant"
         return 1
     fi
 }
@@ -79,14 +79,14 @@ echo ""
 print_info "=== ИТОГОВЫЙ ОТЧЕТ ==="
 
 if [ ${#failed_variants[@]} -eq 0 ]; then
-    print_success "🎉 Все варианты собраны успешно!"
+    print_success "Все варианты собраны успешно"
     echo ""
     print_info "Созданные библиотеки:"
     find out/ -name "*.so" -o -name "*.a" | sort | while read lib; do
-        echo "  📦 $lib"
+        echo "  $lib"
     done
 else
-    print_error "❌ Ошибки при сборке следующих вариантов:"
+    print_error "Ошибки при сборке следующих вариантов:"
     for variant in "${failed_variants[@]}"; do
         echo "  - $variant"
     done

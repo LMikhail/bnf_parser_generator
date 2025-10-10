@@ -43,11 +43,11 @@ int main() {
         assert(!clj_tokens.empty());
         std::cout << "✓ Clojure tokenization (" << clj_tokens.size() << " tokens)" << std::endl;
         
-        std::cout << "\n🎉 Все тесты прошли успешно!" << std::endl;
+        std::cout << "\nВсе тесты прошли успешно" << std::endl;
         return 0;
         
     } catch (const std::exception& e) {
-        std::cerr << "❌ Ошибка: " << e.what() << std::endl;
+        std::cerr << "Ошибка: " << e.what() << std::endl;
         return 1;
     }
 }

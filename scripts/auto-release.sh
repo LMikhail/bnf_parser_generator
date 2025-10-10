@@ -145,7 +145,7 @@ push_changes() {
 
 # Основная функция
 main() {
-    print_info "🚀 Запуск автоматического release для BNF Parser"
+    print_info "Запуск автоматического release для BNF Parser"
     
     check_dependencies
     check_git_status
@@ -153,7 +153,7 @@ main() {
     auto_version
     push_changes
     
-    print_success "🎉 Release завершен успешно!"
+    print_success "Release завершен успешно"
 }
 
 # Запуск
