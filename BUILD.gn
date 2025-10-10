@@ -1,4 +1,23 @@
-# BNF Parser 2.0 - Полная поддержка классических BNF/EBNF правил
+# BNF Parser - Полная поддержка классических BNF/EBNF правил
+# Версия определяется автоматически из git тегов
+
+# Генерация заголовочного файла с версией из git тегов
+action("generate_version") {
+  script = "//build/run_shell_script.py"
+  
+  sources = [ "scripts/generate_version.sh" ]
+  outputs = [ "$target_gen_dir/version.hpp" ]
+  
+  # Аргументы: путь к shell скрипту и путь к выходному файлу
+  args = [
+    rebase_path("scripts/generate_version.sh", root_build_dir),
+    rebase_path("include/version.hpp", root_build_dir),
+  ]
+  
+  # Перегенерировать при каждой сборке, если теги изменились
+  # GN не может отслеживать git теги напрямую, поэтому используем .git/refs
+  inputs = [ ".git/HEAD" ]
+}
 
 config("bnf_parser_config") {
   include_dirs = [ "include" ]
@@ -7,76 +26,65 @@ config("bnf_parser_config") {
     "-Wall",
     "-Wextra",
     "-Wpedantic",
+    "-fPIC",  # Position Independent Code для shared libraries
   ]
 }
 
-# Основная библиотека BNF Parser 2.0
-static_library("bnf_parser") {
-  sources = [
-    # Новая архитектура
-    "src/engine.cpp",
-    "src/bnf_lexer.cpp",
-    "src/bnf_parser.cpp", 
-    "src/bnf_factory.cpp",
-    "src/grammar_tokenizer.cpp",
-    "src/parser.cpp",
-    "src/utils.cpp",
+# Основная библиотека BNF Parser
+if (bnf_parser_library_type == "shared") {
+  shared_library("bnf_parser") {
+    sources = [
+      # Основная функциональность
+      "src/bnf_parser.cpp", 
+      "src/bnf_lexer.cpp",
+      "src/bnf_factory.cpp",
+      "src/grammar_tokenizer.cpp",
+      "src/parser.cpp",
+      "src/utils.cpp",
+    ]
     
-    # Заголовочные файлы
-    "include/bnf_parser.hpp",
-    "include/bnf_ast.hpp",
-    "include/bnf_parser.hpp",
-    "include/grammar_tokenizer.hpp",
-  ]
-  
-  public_configs = [ ":bnf_parser_config" ]
-  
-  # Копируем грамматики в выходную директорию
-  data = [
-    "grammars/prolog.bnf",
-    "grammars/clojure.bnf", 
-    "grammars/json.bnf",
-  ]
+    # Генерируем версию перед сборкой
+    deps = [ ":generate_version" ]
+    
+    public_configs = [ ":bnf_parser_config" ]
+    
+    # Копируем грамматики в выходную директорию
+    data = [
+      "grammars/prolog.bnf",
+      "grammars/json.bnf",
+      "grammars/clojure.bnf",
+    ]
+  }
+} else {
+  static_library("bnf_parser") {
+    sources = [
+      # Основная функциональность
+      "src/bnf_parser.cpp", 
+      "src/bnf_lexer.cpp",
+      "src/bnf_factory.cpp",
+      "src/grammar_tokenizer.cpp",
+      "src/parser.cpp",
+      "src/utils.cpp",
+    ]
+    
+    # Генерируем версию перед сборкой
+    deps = [ ":generate_version" ]
+    
+    public_configs = [ ":bnf_parser_config" ]
+    
+    # Копируем грамматики в выходную директорию
+    data = [
+      "grammars/prolog.bnf",
+      "grammars/json.bnf",
+      "grammars/clojure.bnf",
+    ]
+  }
 }
 
 # Простая демонстрация концепции (без зависимостей)
 executable("simple_demo") {
   sources = [ "examples/simple_demo.cpp" ]
 }
-
-# Отладочный тест парсера
-executable("debug_parser") {
-  sources = [ "debug_parser.cpp" ]
-  deps = [ ":bnf_parser" ]
-  include_dirs = [ "include" ]
-}
-
-# Отладочный тест лексера
-executable("debug_lexer") {
-  sources = [ "debug_lexer.cpp" ]
-  deps = [ ":bnf_parser" ]
-  include_dirs = [ "include" ]
-}
-
-# Отладочный тест токенизатора
-executable("debug_tokenizer") {
-  sources = [ "debug_tokenizer.cpp" ]
-  deps = [ ":bnf_parser" ]
-  include_dirs = [ "include" ]
-}
-
-# Отладочный тест Prolog
-executable("debug_prolog") {
-  sources = [ "debug_prolog.cpp" ]
-  deps = [ ":bnf_parser" ]
-  include_dirs = [ "include" ]
-}
-
-# Полная демонстрация движка (требует исправления ошибок компиляции)
-# executable("bnf_engine_demo") {
-#   sources = [ "examples/bnf_engine_demo.cpp" ]
-#   deps = [ ":bnf_parser" ]
-# }
 
 # Тесты (если включены)
 if (bnf_parser_enable_tests) {
@@ -103,10 +111,7 @@ group("tests") {
 
 group("examples") {
   deps = [ 
-    ":simple_demo",
-    ":debug_parser",
-    ":debug_lexer",
-    ":debug_tokenizer"
+    ":simple_demo"
   ]
 }
 

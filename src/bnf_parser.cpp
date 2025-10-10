@@ -1,11 +1,13 @@
 #include "bnf_parser.hpp"
+#include "grammar_tokenizer.hpp"
+#include "version.hpp"
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <unordered_set>
 
-namespace bnf_engine {
+namespace bnf_parser {
 
 BNFParser::BNFParser(const std::vector<BNFToken>& tokens) 
     : tokens_(tokens), current_(0) {}
@@ -101,7 +103,7 @@ std::unique_ptr<ASTNode> BNFParser::parseAlternative() {
         alternative->addChoice(std::move(right));
     }
     
-    return std::move(alternative);
+    return alternative;
 }
 
 std::unique_ptr<ASTNode> BNFParser::parseSequence() {
@@ -137,7 +139,7 @@ std::unique_ptr<ASTNode> BNFParser::parseSequence() {
         sequence->addElement(std::move(element));
     }
     
-    return std::move(sequence);
+    return sequence;
 }
 
 std::unique_ptr<ASTNode> BNFParser::parseFactor() {
@@ -397,8 +399,10 @@ bool BNFParser::isProductive(const ASTNode* node,
     } else if (const auto* group = dynamic_cast<const Group*>(node)) {
         return isProductive(group->content.get(), productive);
     } else if (const auto* opt = dynamic_cast<const Optional*>(node)) {
+        (void)opt; // Подавляем предупреждение о неиспользуемой переменной
         return true; // Опциональные элементы всегда продуктивны (могут быть пустыми)
     } else if (const auto* zeroMore = dynamic_cast<const ZeroOrMore*>(node)) {
+        (void)zeroMore; // Подавляем предупреждение о неиспользуемой переменной
         return true; // Повторение 0+ всегда продуктивно (может быть пустым)
     } else if (const auto* oneMore = dynamic_cast<const OneOrMore*>(node)) {
         return isProductive(oneMore->content.get(), productive);
@@ -407,4 +411,72 @@ bool BNFParser::isProductive(const ASTNode* node,
     return false;
 }
 
-} // namespace bnf_engine
+// Реализация класса Parser
+class ParserImpl : public Parser {
+public:
+    std::unique_ptr<Grammar> parseGrammarFromString(const std::string& bnfText) override {
+        return BNFGrammarFactory::fromString(bnfText);
+    }
+    
+    std::unique_ptr<Grammar> parseGrammarFromFile(const std::string& filename) override {
+        return BNFGrammarFactory::fromFile(filename);
+    }
+    
+    std::unique_ptr<Tokenizer> createTokenizer(const Grammar& grammar) override {
+        return TokenizerFactory::createFromGrammar(grammar);
+    }
+    
+    std::unique_ptr<Tokenizer> createTokenizerFromString(const std::string& bnfText) override {
+        return TokenizerFactory::createFromString(bnfText);
+    }
+    
+    std::unique_ptr<Tokenizer> createTokenizerFromFile(const std::string& filename) override {
+        return TokenizerFactory::createFromFile(filename);
+    }
+    
+    std::unique_ptr<Grammar> createJSONGrammar() override {
+        return BNFGrammarFactory::createJSONGrammar();
+    }
+    
+    std::unique_ptr<Grammar> createPrologGrammar() override {
+        return BNFGrammarFactory::createPrologGrammar();
+    }
+    
+    std::unique_ptr<Grammar> createClojureGrammar() override {
+        return BNFGrammarFactory::createClojureGrammar();
+    }
+    
+    std::unique_ptr<Grammar> createArithmeticGrammar() override {
+        return BNFGrammarFactory::createArithmeticGrammar();
+    }
+    
+    ValidationResult validateGrammar(const Grammar& grammar) override {
+        auto result = BNFParser::validateGrammar(grammar);
+        ValidationResult parserResult;
+        parserResult.isValid = result.isValid;
+        parserResult.errors = result.errors;
+        parserResult.warnings = result.warnings;
+        return parserResult;
+    }
+    
+    std::string getVersion() const override {
+        return version::getVersionString();
+    }
+    
+    std::vector<std::string> getSupportedFeatures() const override {
+        return {
+            "BNF Grammar Parsing",
+            "EBNF Grammar Parsing", 
+            "Grammar Validation",
+            "Tokenization",
+            "Unicode Support",
+            "Error Reporting"
+        };
+    }
+};
+
+std::unique_ptr<Parser> Parser::create() {
+    return std::make_unique<ParserImpl>();
+}
+
+} // namespace bnf_parser

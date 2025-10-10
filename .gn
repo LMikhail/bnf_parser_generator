@@ -1,2 +1,1 @@
-# GN configuration file for BNF Parser
-buildconfig = "BUILDCONFIG.gn"
+buildconfig = "//build/BUILDCONFIG.gn"

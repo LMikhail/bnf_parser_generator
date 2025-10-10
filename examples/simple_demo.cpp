@@ -4,7 +4,7 @@
 #include <iomanip>
 
 /**
- * Упрощённая демонстрация концепции нового BNF Parser 2.0
+ * Упрощённая демонстрация концепции BNF Parser
  * Показывает архитектуру и принципы работы
  */
 
@@ -35,7 +35,7 @@ public:
         std::cout << "<digit> ::= \"0\" | \"1\" | \"2\" | \"3\" | \"4\" | \"5\" | \"6\" | \"7\" | \"8\" | \"9\"" << std::endl;
         std::cout << std::endl;
         
-        std::cout << "✅ Соответствует всем классическим принципам BNF:" << std::endl;
+        std::cout << "✓ Соответствует всем классическим принципам BNF:" << std::endl;
         std::cout << "  - Правила продукции с ::=" << std::endl;
         std::cout << "  - Альтернативы через |" << std::endl;
         std::cout << "  - Терминалы в кавычках" << std::endl;
@@ -119,7 +119,7 @@ public:
     }
     
     void demonstrateFeatures() {
-        std::cout << "=== Возможности BNF Parser 2.0 ===" << std::endl;
+        std::cout << "=== Возможности BNF Parser ===" << std::endl;
         std::cout << std::endl;
         
         std::vector<std::string> features = {
@@ -153,7 +153,7 @@ public:
 
 int main() {
     std::cout << "╔══════════════════════════════════════════════════════════════╗" << std::endl;
-    std::cout << "║                    BNF Parser 2.0                           ║" << std::endl;
+    std::cout << "║                      BNF Parser                             ║" << std::endl;
     std::cout << "║            Полная поддержка BNF/EBNF стандартов             ║" << std::endl;
     std::cout << "╚══════════════════════════════════════════════════════════════╝" << std::endl;
     std::cout << std::endl;

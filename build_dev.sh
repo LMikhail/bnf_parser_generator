@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Быстрые команды для BNF Parser
+# Инструменты разработчика для BNF Parser
 
 set -e
 
@@ -44,18 +44,18 @@ case "$1" in
         "$PROJECT_ROOT/out/debug/prolog_example"
         ;;
     "help"|"h"|"")
-        echo "Быстрые команды BNF Parser:"
+        echo "Инструменты разработчика BNF Parser:"
         echo ""
-        echo "  ./quick.sh test      (t) - Быстрая сборка и тест"
-        echo "  ./quick.sh debug     (d) - Debug сборка"
-        echo "  ./quick.sh release   (r) - Release сборка"
-        echo "  ./quick.sh examples  (e) - Примеры"
-        echo "  ./quick.sh clean     (c) - Очистка"
-        echo "  ./quick.sh help      (h) - Эта справка"
+        echo "  ./build_dev.sh test      (t) - Быстрая сборка и тест"
+        echo "  ./build_dev.sh debug     (d) - Debug сборка"
+        echo "  ./build_dev.sh release   (r) - Release сборка"
+        echo "  ./build_dev.sh examples  (e) - Примеры"
+        echo "  ./build_dev.sh clean     (c) - Очистка"
+        echo "  ./build_dev.sh help      (h) - Эта справка"
         ;;
     *)
         echo "Неизвестная команда: $1"
-        echo "Используйте './quick.sh help' для справки"
+        echo "Используйте './build_dev.sh help' для справки"
         exit 1
         ;;
 esac

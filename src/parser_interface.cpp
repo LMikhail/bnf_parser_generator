@@ -1,4 +1,5 @@
-#include "bnf_engine.hpp"
+#include "bnf_parser_interface.hpp"
+#include "version.hpp"
 #include <memory>
 #include <stdexcept>
 
@@ -13,10 +14,10 @@ namespace utils {
 }
 
 /**
- * Реализация парсера BNF/EBNF 2.0
+ * Реализация парсера BNF/EBNF
  * Полная поддержка классических правил BNF и всех расширений EBNF
  */
-class BNFParser : public Parser {
+class BNFParserImpl : public Parser {
 public:
     std::unique_ptr<Grammar> parseGrammarFromString(const std::string& bnfText) override {
         return BNFGrammarFactory::fromString(bnfText);
@@ -56,15 +57,15 @@ public:
     
     ValidationResult validateGrammar(const Grammar& grammar) override {
         auto result = BNFParser::validateGrammar(grammar);
-        ValidationResult engineResult;
-        engineResult.isValid = result.isValid;
-        engineResult.errors = result.errors;
-        engineResult.warnings = result.warnings;
-        return engineResult;
+        ValidationResult parserResult;
+        parserResult.isValid = result.isValid;
+        parserResult.errors = result.errors;
+        parserResult.warnings = result.warnings;
+        return parserResult;
     }
     
     std::string getVersion() const override {
-        return "2.0.0 - Full BNF/EBNF Compliance";
+        return version::getVersionString();
     }
     
     std::vector<std::string> getSupportedFeatures() const override {
@@ -111,7 +112,7 @@ public:
 };
 
 std::unique_ptr<Parser> Parser::create() {
-    return std::make_unique<BNFParser>();
+    return std::make_unique<BNFParserImpl>();
 }
 
 // Реализация утилит
@@ -283,4 +284,4 @@ std::string exportToRegex(const Grammar& grammar, const std::string& ruleName) {
 
 } // namespace utils
 
-} // namespace bnf_engine
+} // namespace bnf_parser

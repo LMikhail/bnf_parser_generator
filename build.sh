@@ -43,6 +43,8 @@ show_help() {
     echo "  -v, --verbose       Подробный вывод"
     echo "  --no-tests          Не собирать тесты"
     echo "  --no-examples       Не собирать примеры"
+    echo "  --shared            Собрать динамическую библиотеку (по умолчанию)"
+    echo "  --static            Собрать статическую библиотеку"
     echo ""
     echo "ЦЕЛИ:"
     echo "  all                 Собрать всё (по умолчанию)"
@@ -66,6 +68,7 @@ CLEAN=false
 VERBOSE=false
 BUILD_TESTS=true
 BUILD_EXAMPLES=true
+LIBRARY_TYPE="shared"
 NINJA_ARGS=""
 
 # Парсинг аргументов
@@ -100,6 +103,14 @@ while [[ $# -gt 0 ]]; do
             BUILD_EXAMPLES=false
             shift
             ;;
+        --shared)
+            LIBRARY_TYPE="shared"
+            shift
+            ;;
+        --static)
+            LIBRARY_TYPE="static"
+            shift
+            ;;
         all|lib|tests|examples|clean)
             TARGET="$1"
             shift
@@ -114,11 +125,12 @@ done
 
 # Определяем директории
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR="$PROJECT_ROOT/out/$BUILD_TYPE"
+OUT_DIR="$PROJECT_ROOT/out/$BUILD_TYPE-$LIBRARY_TYPE"
 
 print_info "BNF Parser Build Script"
 print_info "Проект: $PROJECT_ROOT"
 print_info "Тип сборки: $BUILD_TYPE"
+print_info "Тип библиотеки: $LIBRARY_TYPE"
 print_info "Цель: $TARGET"
 print_info "Выходная директория: $OUT_DIR"
 
@@ -141,6 +153,7 @@ is_debug = $([ "$BUILD_TYPE" = "debug" ] && echo "true" || echo "false")
 bnf_parser_enable_unicode = true
 bnf_parser_enable_tests = $BUILD_TESTS
 bnf_parser_enable_examples = $BUILD_EXAMPLES
+bnf_parser_library_type = "$LIBRARY_TYPE"
 EOF
 
     # Генерируем build файлы

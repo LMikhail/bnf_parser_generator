@@ -1,8 +1,8 @@
-#include "bnf_engine.hpp"
+#include "bnf_parser.hpp"
 
-namespace bnf_engine {
+namespace bnf_parser {
 
 // Placeholder для будущего AST парсера
 // Пока фокусируемся только на токенизации
 
-} // namespace bnf_engine
+} // namespace bnf_parser

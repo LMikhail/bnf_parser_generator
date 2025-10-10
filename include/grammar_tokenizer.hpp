@@ -7,7 +7,7 @@
 #include <regex>
 #include <unordered_map>
 
-namespace bnf_engine {
+namespace bnf_parser {
 
 // Forward declarations для избежания циклических зависимостей
 struct Token {
@@ -109,4 +109,4 @@ public:
     static std::unique_ptr<Tokenizer> createFromString(const std::string& bnfText);
 };
 
-} // namespace bnf_engine
+} // namespace bnf_parser

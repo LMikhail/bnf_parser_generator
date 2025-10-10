@@ -1,7 +1,7 @@
-#include "bnf_engine.hpp"
+#include "bnf_parser.hpp"
 #include <sstream>
 
-namespace bnf_engine {
+namespace bnf_parser {
 namespace utils {
 
 std::string tokensToString(const std::vector<Token>& tokens) {
@@ -23,8 +23,8 @@ std::vector<Token> findTokensByType(const std::vector<Token>& tokens, const std:
     return result;
 }
 
-TokenStats analyzeTokens(const std::vector<Token>& tokens) {
-    TokenStats stats;
+bnf_parser::utils::TokenStats analyzeTokens(const std::vector<bnf_parser::Token>& tokens) {
+    bnf_parser::utils::TokenStats stats;
     stats.total_tokens = tokens.size();
     
     for (const auto& token : tokens) {
@@ -36,4 +36,4 @@ TokenStats analyzeTokens(const std::vector<Token>& tokens) {
 }
 
 } // namespace utils
-} // namespace bnf_engine
+} // namespace bnf_parser

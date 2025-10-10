@@ -25,11 +25,11 @@ auto tokens = tokenizer->tokenize(R"({"key": "value"})");
 ### Quick Build (Recommended)
 ```bash
 # Quick commands
-./quick.sh test      # Build and tests
-./quick.sh debug     # Debug build
-./quick.sh release   # Release build
-./quick.sh examples  # Examples
-./quick.sh clean     # Clean
+./build_dev.sh test      # Build and tests
+./build_dev.sh debug     # Debug build
+./build_dev.sh release   # Release build
+./build_dev.sh examples  # Examples
+./build_dev.sh clean     # Clean
 
 # Full build script
 ./build.sh           # Debug build everything
@@ -82,10 +82,10 @@ git clone https://github.com/your-org/bnf_parser.git
 cd bnf_parser
 
 # Build and test
-./quick.sh test
+./build_dev.sh test
 
 # Run examples
-./quick.sh examples
+./build_dev.sh examples
 ```
 
 ### Contributing

@@ -4,7 +4,7 @@
 #include <cctype>
 #include <sstream>
 
-namespace bnf_engine {
+namespace bnf_parser {
 
 GrammarBasedTokenizer::GrammarBasedTokenizer(const Grammar& grammar) 
     : grammar_(grammar) {}
@@ -328,4 +328,4 @@ std::unique_ptr<Tokenizer> TokenizerFactory::createFromString(const std::string&
     return createFromGrammar(*grammar);
 }
 
-} // namespace bnf_engine
+} // namespace bnf_parser

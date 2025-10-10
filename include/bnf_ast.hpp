@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <variant>
 
-namespace bnf_engine {
+namespace bnf_parser {
 
 /**
  * Абстрактное синтаксическое дерево для BNF/EBNF грамматик
@@ -218,4 +218,4 @@ private:
     }
 };
 
-} // namespace bnf_engine
+} // namespace bnf_parser

@@ -1,9 +1,0 @@
-# Build arguments for BNF Parser
-
-# Debug or release build
-is_debug = true
-
-# Enable additional features
-bnf_parser_enable_unicode = true
-bnf_parser_enable_tests = true
-bnf_parser_enable_examples = true

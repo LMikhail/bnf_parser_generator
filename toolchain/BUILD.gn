@@ -1,4 +1,5 @@
 # Toolchain definitions for BNF Parser
+# Custom GCC toolchain configuration
 
 toolchain("gcc") {
   tool("cc") {
@@ -32,6 +33,17 @@ toolchain("gcc") {
     description = "LINK $outfile"
     rspfile_content = "{{inputs}}"
     outputs = [ outfile ]
+  }
+
+  tool("solink") {
+    outfile = "{{target_output_name}}{{output_extension}}"
+    rspfile = "$outfile.rsp"
+    command = "g++ -shared {{ldflags}} -o $outfile -Wl,--start-group @$rspfile {{libs}} -Wl,--end-group"
+    description = "SOLINK $outfile"
+    rspfile_content = "{{inputs}}"
+    outputs = [ outfile ]
+    default_output_extension = ".so"
+    output_prefix = "lib"
   }
 
   tool("stamp") {

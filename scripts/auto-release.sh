@@ -68,11 +68,11 @@ run_tests() {
         print_warning "build.sh не найден, пропускаем сборку"
     fi
     
-    if [ -f "./quick.sh" ]; then
-        ./quick.sh test
+    if [ -f "./build_dev.sh" ]; then
+        ./build_dev.sh test
         print_success "Тесты пройдены"
     else
-        print_warning "quick.sh не найден, пропускаем тесты"
+        print_warning "build_dev.sh не найден, пропускаем тесты"
     fi
 }
 
