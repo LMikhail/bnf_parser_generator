@@ -55,3 +55,4 @@ third_party/
 
 # Generated documentation
 docs/generated/
+include/version.hpp
