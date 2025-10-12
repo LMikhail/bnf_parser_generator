@@ -428,6 +428,8 @@ std::string CppCodeGenerator::visitGroup(const Group* node) {
 }
 
 std::string CppCodeGenerator::visitOptional(const Optional* node) {
+    // TODO: Investigate complex JSON parsing failures - simple {} works but content fails
+    // Current fix handles basic optional parsing but may need refinement for nested structures
     std::ostringstream ss;
     ss << "        // Optional\n";
     ss << "        {\n";
@@ -435,17 +437,32 @@ std::string CppCodeGenerator::visitOptional(const Optional* node) {
     ss << "            size_t opt_line = line_;\n";
     ss << "            size_t opt_column = column_;\n";
     ss << "            size_t opt_children_size = node->children.size();\n";
+    ss << "            bool opt_success = true;\n";
     
-    // Simple approach: try to parse content, restore state if failed
+    // Generate content parsing with proper error handling for optional
     std::string content_code = visitNode(node->content.get());
-    ss << content_code;
     
-    // Check if parsing succeeded by comparing children count
-    ss << "            if (node->children.size() == opt_children_size) {\n";
-    ss << "                // No new children added, optional content failed - restore state\n";
+    // Replace any "return nullptr;" with proper optional failure handling
+    size_t pos = 0;
+    while ((pos = content_code.find("return nullptr;", pos)) != std::string::npos) {
+        content_code.replace(pos, 15, "opt_success = false; break;");
+        pos += 27; // length of "opt_success = false; break;"
+    }
+    
+    // Wrap content in a do-while(false) loop to enable break statements
+    ss << "            do {\n";
+    ss << content_code;
+    ss << "            } while (false);\n";
+    
+    ss << "            if (!opt_success) {\n";
+    ss << "                // Optional content failed - restore state and continue\n";
     ss << "                pos_ = opt_pos;\n";
     ss << "                line_ = opt_line;\n";
     ss << "                column_ = opt_column;\n";
+    ss << "                // Remove any children that were added during failed optional parsing\n";
+    ss << "                while (node->children.size() > opt_children_size) {\n";
+    ss << "                    node->children.pop_back();\n";
+    ss << "                }\n";
     ss << "            }\n";
     ss << "        }\n";
     

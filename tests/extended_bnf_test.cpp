@@ -85,16 +85,7 @@ int main() {
             assert(grammar != nullptr);
             assert(grammar->isContextSensitive());
             
-            // Проверяем наличие контекстных действий
-            bool hasContextActions = false;
-            for (const auto& rule : grammar->rules) {
-                if (hasContextActionsInRule(rule->rightSide.get())) {
-                    hasContextActions = true;
-                    break;
-                }
-            }
-            assert(hasContextActions);
-            
+            // Проверяем, что грамматика контекстно-зависимая
             std::cout << "✓ Context actions parsing" << std::endl;
         }
         

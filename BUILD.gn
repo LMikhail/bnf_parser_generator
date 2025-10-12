@@ -96,11 +96,6 @@ executable("bnf-parser-gen") {
   deps = [ ":bnf_parser_generator" ]
 }
 
-# Простая демонстрация концепции (без зависимостей)
-executable("simple_demo") {
-  sources = [ "examples/simple_demo.cpp" ]
-}
-
 # Тесты (если включены)
 if (bnf_parser_generator_enable_tests) {
   executable("basic_test") {
@@ -148,9 +143,7 @@ group("tests") {
 }
 
 group("examples") {
-  deps = [ 
-    ":simple_demo"
-  ]
+  deps = []
 }
 
 group("all") {
