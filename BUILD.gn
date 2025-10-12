@@ -144,6 +144,7 @@ group("examples") {
 group("all") {
   deps = [
     ":bnf_parser_generator",
+    ":bnf-parser-gen",
     ":examples",
   ]
 }
@@ -152,6 +153,7 @@ group("all_with_tests") {
   testonly = true
   deps = [
     ":bnf_parser_generator",
+    ":bnf-parser-gen",
     ":tests",
     ":examples",
   ]

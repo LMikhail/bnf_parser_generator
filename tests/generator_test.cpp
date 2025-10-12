@@ -134,13 +134,14 @@ int main() {
             )";
             
             // Фабрика бросает исключение при невалидной грамматике
-            bool caught_error = false;
+            [[maybe_unused]] bool caught_error = false;
             try {
                 auto grammar = BNFGrammarFactory::fromString(invalid_bnf);
+                (void)grammar; // Подавляем предупреждение
             } catch (const std::runtime_error&) {
                 caught_error = true;
             }
-            assert(caught_error);
+            assert(caught_error && "Expected to catch error for invalid grammar");
             std::cout << "✓ Invalid grammar handling" << std::endl;
         }
         

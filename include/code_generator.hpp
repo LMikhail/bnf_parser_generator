@@ -40,6 +40,12 @@ struct GeneratorOptions {
     
     // Включить позиционную информацию в AST узлы
     bool track_positions = true;
+    
+    // Генерировать исполняемый файл (с main())
+    bool generate_executable = false;
+    
+    // Имя входного файла для парсинга (используется в main)
+    std::string default_input_file = "";
 };
 
 /**
@@ -52,8 +58,12 @@ struct GeneratedCode {
     // Имя файла парсера
     std::string parser_filename;
     
-    // Дополнительные файлы (например, заголовочные файлы)
+    // Дополнительные файлы (например, заголовочные файлы, main.cpp)
     std::vector<std::pair<std::string, std::string>> additional_files; // (filename, content)
+    
+    // Сгенерированный main.cpp (если generate_executable == true)
+    std::string main_code;
+    std::string main_filename;
     
     // Сообщения и предупреждения
     std::vector<std::string> messages;

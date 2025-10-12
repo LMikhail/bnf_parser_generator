@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Скрипт для сборки всех четырех вариантов библиотек
-# debug-shared, debug-static, release-shared, release-static
+# out/debug/shared, out/debug/static, out/release/shared, out/release/static
 
 set -e
 
@@ -31,25 +31,26 @@ print_warning() {
 print_info "Сборка всех вариантов BNF Parser библиотек..."
 
 # Массив вариантов для сборки
+# Формат: "build_type/library_type"
 variants=(
-    "debug-shared"
-    "debug-static" 
-    "release-shared"
-    "release-static"
+    "debug/shared"
+    "debug/static" 
+    "release/shared"
+    "release/static"
 )
 
 # Функция для сборки одного варианта
 build_variant() {
     local variant=$1
-    local build_type=${variant%-*}
-    local library_type=${variant#*-}
+    local build_type=${variant%/*}
+    local library_type=${variant#*/}
     
     print_info "Сборка варианта: $variant (build: $build_type, library: $library_type)"
     
     if [ "$build_type" = "debug" ]; then
-        BUILD_CMD="./build.sh --shared"  # По умолчанию debug
+        BUILD_CMD="./build.sh -d"
     else
-        BUILD_CMD="./build.sh --release"
+        BUILD_CMD="./build.sh -r"
     fi
     
     if [ "$library_type" = "static" ]; then

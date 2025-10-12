@@ -23,6 +23,9 @@ private:
     
     // Текущий уровень отступа
     size_t current_indent_level_ = 0;
+    
+    // Счетчик для уникальных имен переменных
+    mutable size_t variable_counter_ = 0;
 
 public:
     CppCodeGenerator() = default;
@@ -69,6 +72,7 @@ private:
     std::string generateHelperMethods();
     std::string generateMainParseMethod(const Grammar& grammar);
     std::string generateFooter();
+    std::string generateMainCpp(const Grammar& grammar);
     
     // Вспомогательные методы
     std::string getIndent(size_t level) const;
@@ -76,6 +80,7 @@ private:
     std::string generateFunctionSignature(const std::string& rule_name) const;
     std::string generateTokenMatchCode(const std::string& token_value) const;
     std::string generateErrorHandling(const std::string& expected) const;
+    std::string generateInlineNode(const ASTNode* node, const std::string& success_var, const std::string& indent);
     
     // AST генерация
     std::string generateASTNodeType(const std::string& rule_name) const;

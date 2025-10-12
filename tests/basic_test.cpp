@@ -70,16 +70,17 @@ int main() {
             )";
             
             // Фабрика бросает исключение при невалидной грамматике
-            bool caught_error = false;
+            [[maybe_unused]] bool caught_error = false;
             try {
                 auto grammar = BNFGrammarFactory::fromString(invalid_bnf);
+                (void)grammar; // Подавляем предупреждение
             } catch (const std::runtime_error& e) {
                 std::string error_msg = e.what();
                 assert(error_msg.find("validation failed") != std::string::npos || 
                        error_msg.find("Undefined") != std::string::npos);
                 caught_error = true;
             }
-            assert(caught_error);
+            assert(caught_error && "Expected to catch error for undefined rule");
             std::cout << "✓ Undefined non-terminal detection" << std::endl;
         }
         
@@ -97,7 +98,8 @@ int main() {
             auto grammar = BNFGrammarFactory::createArithmeticGrammar();
             // Проверяем, что можем найти хотя бы стартовое правило
             const auto* rule = grammar->findRule(grammar->startSymbol);
-            assert(rule != nullptr);
+            assert(rule != nullptr && "Start rule should be found");
+            (void)rule; // Подавляем предупреждение об unused variable
             std::cout << "✓ Rule lookup by name" << std::endl;
         }
         

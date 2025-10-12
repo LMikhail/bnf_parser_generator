@@ -10,13 +10,17 @@ using namespace bnf_parser_generator;
 struct CliOptions {
     std::string input_file;
     std::string output_file;
+    std::string output_dir = ".";
     std::string language = "cpp";
     std::string parser_name = "GeneratedParser";
     std::string namespace_name;
+    std::string format = "source-only"; // source-only, library-static, library-shared, executable, all
     bool verbose = false;
     bool debug_mode = false;
     bool show_help = false;
     bool show_version = false;
+    bool generate_executable = false;
+    bool compile = false;
 };
 
 void printHelp(const char* program_name) {
@@ -25,17 +29,36 @@ void printHelp(const char* program_name) {
     std::cout << "\nOptions:\n";
     std::cout << "  -i, --input FILE       Input BNF/EBNF grammar file (required)\n";
     std::cout << "  -o, --output FILE      Output parser file (default: auto-generated)\n";
+    std::cout << "  --output-dir DIR       Output directory for generated files (default: .)\n";
     std::cout << "  -l, --language LANG    Target language: cpp, dart, java, clojure (default: cpp)\n";
     std::cout << "  -n, --name NAME        Parser class name (default: GeneratedParser)\n";
     std::cout << "  --namespace NAME       Namespace/package name (optional)\n";
+    std::cout << "  -f, --format FORMAT    Output format (default: source-only)\n";
+    std::cout << "                         source-only    - Only source code files\n";
+    std::cout << "                         library-static - Compile as static library (.a)\n";
+    std::cout << "                         library-shared - Compile as shared library (.so)\n";
+    std::cout << "                         executable     - Compile as standalone executable\n";
+    std::cout << "                         all            - Generate source + all binaries\n";
+    std::cout << "  -c, --compile          Auto-compile generated code (implies format selection)\n";
     std::cout << "  -v, --verbose          Verbose output\n";
     std::cout << "  -d, --debug            Generate debug code\n";
+    std::cout << "  -e, --executable       Generate standalone executable (with main.cpp)\n";
     std::cout << "  -h, --help             Show this help message\n";
     std::cout << "  --version              Show version information\n";
     std::cout << "\nExamples:\n";
-    std::cout << "  " << program_name << " -i json.bnf -o json_parser.cpp\n";
-    std::cout << "  " << program_name << " --input grammar.bnf --language cpp --name MyParser\n";
+    std::cout << "  # Generate source code only:\n";
+    std::cout << "  " << program_name << " -i json.bnf -o JsonParser.cpp\n\n";
+    std::cout << "  # Generate with standalone executable:\n";
+    std::cout << "  " << program_name << " -i json.bnf -o JsonParser.cpp --executable\n\n";
+    std::cout << "  # Compile generated parser as executable:\n";
+    std::cout << "  g++ -std=c++17 -o json_parser JsonParser_main.cpp JsonParser.cpp\n\n";
+    std::cout << "  # Compile as shared library:\n";
+    std::cout << "  g++ -std=c++17 -shared -fPIC -o libJsonParser.so JsonParser.cpp\n\n";
+    std::cout << "  # Compile as static library:\n";
+    std::cout << "  g++ -std=c++17 -c JsonParser.cpp -o JsonParser.o\n";
+    std::cout << "  ar rcs libJsonParser.a JsonParser.o\n";
     std::cout << "  " << program_name << " -i calc.bnf -o calculator.cpp --namespace calc --verbose\n";
+    std::cout << "  " << program_name << " -i json.bnf --executable --name JsonParser\n";
     std::cout << "\nSupported Languages:\n";
     auto langs = CodeGeneratorFactory::getSupportedLanguages();
     for (const auto& lang : langs) {
@@ -61,16 +84,24 @@ bool parseArgs(int argc, char* argv[], CliOptions& options) {
             options.input_file = argv[++i];
         } else if ((arg == "-o" || arg == "--output") && i + 1 < argc) {
             options.output_file = argv[++i];
+        } else if (arg == "--output-dir" && i + 1 < argc) {
+            options.output_dir = argv[++i];
         } else if ((arg == "-l" || arg == "--language") && i + 1 < argc) {
             options.language = argv[++i];
         } else if ((arg == "-n" || arg == "--name") && i + 1 < argc) {
             options.parser_name = argv[++i];
         } else if (arg == "--namespace" && i + 1 < argc) {
             options.namespace_name = argv[++i];
+        } else if ((arg == "-f" || arg == "--format") && i + 1 < argc) {
+            options.format = argv[++i];
+        } else if (arg == "-c" || arg == "--compile") {
+            options.compile = true;
         } else if (arg == "-v" || arg == "--verbose") {
             options.verbose = true;
         } else if (arg == "-d" || arg == "--debug") {
             options.debug_mode = true;
+        } else if (arg == "-e" || arg == "--executable") {
+            options.generate_executable = true;
         } else {
             std::cerr << "Unknown option: " << arg << "\n";
             return false;
@@ -183,15 +214,39 @@ int main(int argc, char* argv[]) {
         
         GeneratorOptions gen_options;
         gen_options.target_language = options.language;
-        gen_options.parser_name = options.parser_name;
+        
+        // Извлекаем базовое имя файла из output_file
+        if (!options.output_file.empty()) {
+            std::string base_name = options.output_file;
+            // Убираем путь
+            size_t last_slash = base_name.find_last_of("/\\");
+            if (last_slash != std::string::npos) {
+                base_name = base_name.substr(last_slash + 1);
+            }
+            // Убираем расширение .cpp
+            size_t last_dot = base_name.find_last_of(".");
+            if (last_dot != std::string::npos) {
+                base_name = base_name.substr(0, last_dot);
+            }
+            gen_options.parser_name = base_name;
+        } else {
+            gen_options.parser_name = options.parser_name;
+        }
+        
         gen_options.namespace_name = options.namespace_name;
         gen_options.debug_mode = options.debug_mode;
+        gen_options.generate_executable = options.generate_executable;
         
         auto result = generator->generate(*grammar, gen_options);
         
         if (!result.success) {
             std::cerr << "Error: Code generation failed: " << result.error_message << "\n";
             return 1;
+        }
+        
+        // Корректируем имя main файла на основе parser_name
+        if (!result.main_filename.empty()) {
+            result.main_filename = gen_options.parser_name + "_main.cpp";
         }
         
         // Определение имени выходного файла
@@ -234,8 +289,27 @@ int main(int argc, char* argv[]) {
             }
         }
         
+        // Запись main.cpp если сгенерирован исполняемый файл
+        if (!result.main_code.empty()) {
+            std::ofstream main_out(result.main_filename);
+            if (!main_out) {
+                std::cerr << "Error: Cannot write to file: " << result.main_filename << "\n";
+                return 1;
+            }
+            main_out << result.main_code;
+            main_out.close();
+            
+            if (options.verbose) {
+                std::cout << "  ✓ Generated main.cpp: " << result.main_filename << "\n";
+            }
+        }
+        
         if (!options.verbose) {
-            std::cout << "Generated: " << output_file << "\n";
+            std::cout << "Generated: " << output_file;
+            if (!result.main_filename.empty()) {
+                std::cout << ", " << result.main_filename;
+            }
+            std::cout << "\n";
         } else {
             std::cout << "\n✅ Success!\n";
         }

@@ -125,7 +125,7 @@ done
 
 # Определяем директории
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OUT_DIR="$PROJECT_ROOT/out/$BUILD_TYPE-$LIBRARY_TYPE"
+OUT_DIR="$PROJECT_ROOT/out/$BUILD_TYPE/$LIBRARY_TYPE"
 
 print_info "BNF Parser Build Script"
 print_info "Проект: $PROJECT_ROOT"
@@ -209,12 +209,32 @@ build_target() {
 
 # Функция запуска тестов
 run_tests() {
-    if [ "$BUILD_TESTS" = "true" ] && [ -f "$OUT_DIR/basic_test" ]; then
+    if [ "$BUILD_TESTS" = "true" ]; then
         print_info "Запуск тестов..."
-        if "$OUT_DIR/basic_test"; then
+        
+        # Добавляем путь к библиотеке для shared library
+        export LD_LIBRARY_PATH="$OUT_DIR:$LD_LIBRARY_PATH"
+        
+        local all_passed=true
+        
+        # Запускаем все тесты
+        for test_exe in "$OUT_DIR/basic_test" "$OUT_DIR/utf8_test" "$OUT_DIR/generator_test"; do
+            if [ -f "$test_exe" ]; then
+                local test_name=$(basename "$test_exe")
+                print_info "Запуск $test_name..."
+                if "$test_exe"; then
+                    print_success "$test_name прошел"
+                else
+                    print_error "$test_name провалился"
+                    all_passed=false
+                fi
+            fi
+        done
+        
+        if [ "$all_passed" = "true" ]; then
             print_success "Все тесты прошли"
         else
-            print_error "Тесты провалились"
+            print_error "Некоторые тесты провалились"
             exit 1
         fi
     fi
@@ -224,12 +244,10 @@ run_tests() {
 show_examples() {
     if [ "$BUILD_EXAMPLES" = "true" ]; then
         print_info "Доступные примеры:"
-        for example in "$OUT_DIR"/*_example; do
-            if [ -f "$example" ]; then
-                echo "  $(basename "$example")"
-            fi
-        done
-        print_info "Запустите пример: $OUT_DIR/prolog_example"
+        if [ -f "$OUT_DIR/simple_demo" ]; then
+            echo "  simple_demo"
+            print_info "Запустите пример: $OUT_DIR/simple_demo"
+        fi
     fi
 }
 

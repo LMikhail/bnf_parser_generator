@@ -40,8 +40,8 @@ case "$1" in
         print_info "Сборка и запуск примеров..."
         "$PROJECT_ROOT/build.sh" -d examples
         echo ""
-        print_info "Запуск Prolog примера:"
-        "$PROJECT_ROOT/out/debug/prolog_example"
+        print_info "Запуск simple_demo примера:"
+        "$PROJECT_ROOT/out/debug/shared/simple_demo"
         ;;
     "help"|"h"|"")
         echo "Инструменты разработчика BNF Parser:"
