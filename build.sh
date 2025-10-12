@@ -150,10 +150,10 @@ generate_build() {
     cat > "$OUT_DIR/args.gn" << EOF
 # Build arguments for $BUILD_TYPE build
 is_debug = $([ "$BUILD_TYPE" = "debug" ] && echo "true" || echo "false")
-bnf_parser_enable_unicode = true
-bnf_parser_enable_tests = $BUILD_TESTS
-bnf_parser_enable_examples = $BUILD_EXAMPLES
-bnf_parser_library_type = "$LIBRARY_TYPE"
+bnf_parser_generator_enable_unicode = true
+bnf_parser_generator_enable_tests = $BUILD_TESTS
+bnf_parser_generator_enable_examples = $BUILD_EXAMPLES
+bnf_parser_generator_library_type = "$LIBRARY_TYPE"
 EOF
 
     # Генерируем build файлы
@@ -184,7 +184,7 @@ build_target() {
             fi
             ;;
         lib)
-            GN_TARGET="bnf_parser"
+            GN_TARGET="bnf_parser_generator"
             ;;
         tests)
             GN_TARGET="tests"

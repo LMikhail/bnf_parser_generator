@@ -3,7 +3,7 @@
 #include <sstream>
 #include <stdexcept>
 
-namespace bnf_parser {
+namespace bnf_parser_generator {
 
 std::unique_ptr<Grammar> BNFGrammarFactory::fromString(const std::string& bnfText) {
     BNFLexer lexer(bnfText);
@@ -184,4 +184,4 @@ digit ::= '0'..'9'
     return fromString(identifierBNF);
 }
 
-} // namespace bnf_parser
+} // namespace bnf_parser_generator

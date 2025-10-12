@@ -100,9 +100,9 @@ build_project() {
     mkdir -p out/$build_type
     cat > out/$build_type/args.gn << EOF
 is_debug = $([ "$build_type" = "debug" ] && echo "true" || echo "false")
-bnf_parser_enable_unicode = true
-bnf_parser_enable_tests = true
-bnf_parser_enable_examples = true
+bnf_parser_generator_enable_unicode = true
+bnf_parser_generator_enable_tests = true
+bnf_parser_generator_enable_examples = true
 EOF
     
     # Генерируем build файлы

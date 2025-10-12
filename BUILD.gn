@@ -1,4 +1,4 @@
-# BNF Parser - Полная поддержка классических BNF/EBNF правил
+# BNF Parser Generator - Генератор standalone парсеров из BNF/EBNF грамматик
 # Версия определяется автоматически из git тегов
 
 # Генерация заголовочного файла с версией из git тегов
@@ -19,7 +19,7 @@ action("generate_version") {
   inputs = [ ".git/HEAD" ]
 }
 
-config("bnf_parser_config") {
+config("bnf_parser_generator_config") {
   include_dirs = [ "include" ]
   cflags_cc = [
     "-std=c++17",
@@ -30,23 +30,25 @@ config("bnf_parser_config") {
   ]
 }
 
-# Основная библиотека BNF Parser
-if (bnf_parser_library_type == "shared") {
-  shared_library("bnf_parser") {
+# Основная библиотека BNF Parser Generator
+if (bnf_parser_generator_library_type == "shared") {
+  shared_library("bnf_parser_generator") {
     sources = [
-      # Основная функциональность
+      # Парсинг BNF грамматик
       "src/bnf_parser.cpp", 
       "src/bnf_lexer.cpp",
       "src/bnf_factory.cpp",
-      "src/grammar_tokenizer.cpp",
-      "src/parser.cpp",
-      "src/utils.cpp",
+      "src/utf8_utils.cpp",
+      
+      # Генератор кода
+      "src/code_generator.cpp",
+      "src/cpp_backend.cpp",
     ]
     
     # Генерируем версию перед сборкой
     deps = [ ":generate_version" ]
     
-    public_configs = [ ":bnf_parser_config" ]
+    public_configs = [ ":bnf_parser_generator_config" ]
     
     # Копируем грамматики в выходную директорию
     data = [
@@ -56,21 +58,23 @@ if (bnf_parser_library_type == "shared") {
     ]
   }
 } else {
-  static_library("bnf_parser") {
+  static_library("bnf_parser_generator") {
     sources = [
-      # Основная функциональность
+      # Парсинг BNF грамматик
       "src/bnf_parser.cpp", 
       "src/bnf_lexer.cpp",
       "src/bnf_factory.cpp",
-      "src/grammar_tokenizer.cpp",
-      "src/parser.cpp",
-      "src/utils.cpp",
+      "src/utf8_utils.cpp",
+      
+      # Генератор кода
+      "src/code_generator.cpp",
+      "src/cpp_backend.cpp",
     ]
     
     # Генерируем версию перед сборкой
     deps = [ ":generate_version" ]
     
-    public_configs = [ ":bnf_parser_config" ]
+    public_configs = [ ":bnf_parser_generator_config" ]
     
     # Копируем грамматики в выходную директорию
     data = [
@@ -81,22 +85,40 @@ if (bnf_parser_library_type == "shared") {
   }
 }
 
+# CLI инструмент для генерации парсеров
+executable("bnf-parser-gen") {
+  sources = [ "src/bnf_parser_gen_cli.cpp" ]
+  deps = [ ":bnf_parser_generator" ]
+}
+
 # Простая демонстрация концепции (без зависимостей)
 executable("simple_demo") {
   sources = [ "examples/simple_demo.cpp" ]
 }
 
 # Тесты (если включены)
-if (bnf_parser_enable_tests) {
+if (bnf_parser_generator_enable_tests) {
   executable("basic_test") {
     testonly = true
     sources = [ "tests/basic_test.cpp" ]
-    deps = [ ":bnf_parser" ]
+    deps = [ ":bnf_parser_generator" ]
+  }
+  
+  executable("utf8_test") {
+    testonly = true
+    sources = [ "tests/utf8_test.cpp" ]
+    deps = [ ":bnf_parser_generator" ]
+  }
+  
+  executable("generator_test") {
+    testonly = true
+    sources = [ "tests/generator_test.cpp" ]
+    deps = [ ":bnf_parser_generator" ]
   }
 }
 
 # Примеры (если включены)
-if (bnf_parser_enable_examples) {
+if (bnf_parser_generator_enable_examples) {
   # Пока только демонстрационный пример
 }
 
@@ -104,8 +126,12 @@ if (bnf_parser_enable_examples) {
 group("tests") {
   testonly = true
   deps = []
-  if (bnf_parser_enable_tests) {
-    deps += [ ":basic_test" ]
+  if (bnf_parser_generator_enable_tests) {
+    deps += [ 
+      ":basic_test",
+      ":utf8_test",
+      ":generator_test",
+    ]
   }
 }
 
@@ -117,7 +143,7 @@ group("examples") {
 
 group("all") {
   deps = [
-    ":bnf_parser",
+    ":bnf_parser_generator",
     ":examples",
   ]
 }
@@ -125,7 +151,7 @@ group("all") {
 group("all_with_tests") {
   testonly = true
   deps = [
-    ":bnf_parser",
+    ":bnf_parser_generator",
     ":tests",
     ":examples",
   ]

@@ -2,7 +2,7 @@
 #include <cctype>
 #include <stdexcept>
 
-namespace bnf_parser {
+namespace bnf_parser_generator {
 
 BNFLexer::BNFLexer(const std::string& input) 
     : input_(input), pos_(0), line_(1), column_(1) {}
@@ -236,4 +236,4 @@ bool BNFLexer::isDigit(char c) const {
     return c >= '0' && c <= '9';
 }
 
-} // namespace bnf_parser
+} // namespace bnf_parser_generator
