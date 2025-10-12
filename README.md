@@ -1,46 +1,71 @@
 # BNF Parser Generator
 
-Generator of standalone parsers from BNF/EBNF grammars for various programming languages.
+Generator of standalone parsers from BNF/EBNF grammars. Produces C++ code that can be used as library or executable.
 
-## Project Status
+## Status
 
-⚠️ **Architecture design phase** - The project is currently in architectural design phase. The implementation of the parser generator is planned.
+Working implementation. Generator supports full EBNF syntax and produces functional parsers.
 
-## Target Languages
+Currently implemented:
+- C++ code generation (header + implementation)
+- Full EBNF support (alternatives, sequences, repetitions, optionals, groups, character ranges)
+- Standalone executable generation with CLI
+- Library generation (static/shared)
+- Recursive descent parsing with backtracking
 
-**Priority 1** (mandatory):
-- **Clojure/EDN** - extensible data notation
-- **Prolog** - logic programming
+## Usage
 
-**Priority 2** (important):
-- **JSON** - data interchange
-- **SQL** - database queries
-
-**Priority 3-6** (promising):
-- Python, YAML, C++, Java, JavaScript, TypeScript, Rust, HTML, CSS, XML, UML
-
-## Planned Usage
+### Generate Parser
 
 ```bash
-# Generate parser from BNF grammar
-$ bnf-parser-gen --input json.bnf --output json_parser.cpp --language cpp
-Generated: json_parser.cpp (789 lines)
+# Generate parser source code
+bnf-parser-gen -i grammar.bnf -o MyParser.cpp
+
+# Generate with standalone executable
+bnf-parser-gen -i grammar.bnf -o MyParser.cpp --executable
+
+# Generate with custom namespace
+bnf-parser-gen -i grammar.bnf -o MyParser.cpp --namespace myparser
 ```
 
+### Compile Generated Parser
+
+```bash
+# Compile as executable
+g++ -std=c++17 -o my_parser MyParser_main.cpp MyParser.cpp
+
+# Compile as shared library
+g++ -std=c++17 -shared -fPIC -o libMyParser.so MyParser.cpp
+
+# Compile as static library
+g++ -std=c++17 -c MyParser.cpp -o MyParser.o
+ar rcs libMyParser.a MyParser.o
+```
+
+### Use Generated Parser
+
 ```cpp
-// User integrates generated parser
-#include "json_parser.cpp"
+#include "MyParser.cpp"
 
 int main() {
-    std::string input = R"({"key": "value", "number": 42})";
-    json::Parser parser(input);
-    auto result = parser.parse();
+    std::string input = "...";
+    MyParser parser(input);
+    auto ast = parser.parse();
     
-    if (result.success) {
-        result.tree->print();
+    if (ast) {
+        // Process AST
+    } else {
+        std::cerr << parser.getError() << std::endl;
     }
 }
 ```
+
+## Example Grammars
+
+The project includes reference grammars in `grammars/` directory:
+- `json.bnf` - JSON data format
+- `prolog.bnf` - Prolog logic programming language
+- `clojure.bnf` - Clojure/EDN data notation
 
 ## Building
 
@@ -81,16 +106,16 @@ deps = [ "//deps/bnf_parser_generator:bnf_parser_generator" ]
 
 ## Features
 
-- **Parser Generator** - Generates standalone parsers from BNF/EBNF grammars
-- **Multi-language output** - C++, Dart, Java, Clojure (planned)
-- **Extended BNF** - Support for context-sensitive grammars via parameters
-- **No runtime dependencies** - Generated parsers are standalone
-- **High performance** - Native code with natural backtracking
-- **Cross-platform** - Works on Linux, macOS, Windows
-- **Modern C++17** - Clean architecture and API
-- **Comprehensive testing** - Full test suite included
-- **CI/CD ready** - GitHub Actions and GitLab CI configured
-- **Automatic versioning** - Semantic versioning with conventional commits
+- Generates standalone parsers from BNF/EBNF grammars
+- C++ code generation (C++17 standard)
+- Full EBNF syntax support (alternatives, sequences, repetitions, optionals, groups, character ranges)
+- Generated parsers have no runtime dependencies
+- Recursive descent parsing with backtracking
+- Multiple output formats: source code, static library, shared library, executable
+- Cross-platform: Linux, macOS, Windows
+- Full test suite included
+- CI/CD configured (GitHub Actions, GitLab CI)
+- Semantic versioning with conventional commits
 
 ## Development
 
@@ -114,11 +139,11 @@ cd bnf_parser_generator
 
 ### Documentation
 
-📘 **[Russian Documentation](docs/ru/README.md)** - Полная документация на русском
-- [Architecture](docs/ru/architecture.md) - Architectural design
-- [Design Decisions](docs/ru/design_decisions.md) - History of architectural decisions
-- [Parsing Algorithms Analysis](docs/ru/parsing_algorithms/parsing_algorithms_analysis.md) - 16 algorithms comparison
-- [Grammar Classes](docs/ru/parsing_algorithms/grammar_classes.md) - Chomsky hierarchy
+[Russian Documentation](docs/ru/README.md) - Full documentation in Russian
+- [Architecture](docs/ru/architecture.md) - System architecture
+- [Design Decisions](docs/ru/design_decisions.md) - Architectural decisions history
+- [Parsing Algorithms Analysis](docs/ru/parsing_algorithms/parsing_algorithms_analysis.md) - Comparison of 16 parsing algorithms
+- [Grammar Classes](docs/ru/parsing_algorithms/grammar_classes.md) - Chomsky hierarchy reference
 
 ### Contributing
 1. Follow conventional commit format
