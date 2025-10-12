@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstddef>
+#include <cstdint>
 
 namespace bnf_parser_generator {
 namespace utf8 {
@@ -48,6 +49,21 @@ bool isWhitespace(const std::string& utf8Char);
  * @return Количество UTF-8 символов
  */
 size_t length(const std::string& str);
+
+/**
+ * @brief Преобразует Unicode codepoint в UTF-8 строку
+ * @param codepoint Unicode codepoint (U+0000 - U+10FFFF)
+ * @return UTF-8 представление символа
+ * @throws std::runtime_error если codepoint вне допустимого диапазона
+ */
+std::string codepointToUtf8(uint32_t codepoint);
+
+/**
+ * @brief Извлекает первый Unicode codepoint из UTF-8 строки
+ * @param utf8Str UTF-8 строка
+ * @return Unicode codepoint первого символа, или 0 если строка пуста или невалидна
+ */
+uint32_t utf8ToCodepoint(const std::string& utf8Str);
 
 /**
  * @brief Класс для итерации по UTF-8 символам в строке

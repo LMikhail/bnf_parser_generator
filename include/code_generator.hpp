@@ -124,6 +124,7 @@ protected:
     std::string indent(const std::string& code, size_t level = 1) const;
     std::string escapeString(const std::string& str) const;
     std::string makeIdentifier(const std::string& name) const;
+    std::string camelToSnake(const std::string& name) const;
 };
 
 /**

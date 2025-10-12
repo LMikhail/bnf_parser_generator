@@ -35,7 +35,8 @@ GeneratedCode CppCodeGenerator::generate(const Grammar& grammar, const Generator
         code << generateFooter();
         
         result.parser_code = code.str();
-        result.parser_filename = makeIdentifier(options_.parser_name) + ".cpp";
+        // Имя файла в snake_case: JsonParser -> json_parser.cpp
+        result.parser_filename = camelToSnake(options_.parser_name) + ".cpp";
         result.success = true;
         
         result.messages.push_back("Generated C++ parser successfully");
@@ -45,7 +46,8 @@ GeneratedCode CppCodeGenerator::generate(const Grammar& grammar, const Generator
         // Генерация main.cpp если требуется исполняемый файл
         if (options_.generate_executable) {
             result.main_code = generateMainCpp(grammar);
-            result.main_filename = makeIdentifier(options_.parser_name) + "_main.cpp";
+            // Имя main файла в snake_case: JsonParser -> json_parser_main.cpp
+            result.main_filename = camelToSnake(options_.parser_name) + "_main.cpp";
             result.messages.push_back("Generated standalone executable main.cpp");
         }
         
@@ -207,6 +209,11 @@ std::string CppCodeGenerator::generateMainParseMethod(const Grammar& grammar) {
 }
 
 std::string CppCodeGenerator::generateRuleFunction(const ProductionRule& rule) {
+    // Если правило имеет параметры, используем специальную генерацию
+    if (rule.hasParameters()) {
+        return generateParameterizedFunction(rule);
+    }
+    
     std::ostringstream ss;
     
     // Сброс счетчика переменных для каждой функции
@@ -261,6 +268,8 @@ std::string CppCodeGenerator::visitNode(const ASTNode* node) {
         return visitZeroOrMore(zero);
     } else if (const auto* one = dynamic_cast<const OneOrMore*>(node)) {
         return visitOneOrMore(one);
+    } else if (const auto* action = dynamic_cast<const ContextAction*>(node)) {
+        return visitContextAction(action);
     }
     
     return "        // Unknown node type\n";
@@ -282,8 +291,26 @@ std::string CppCodeGenerator::visitTerminal(const Terminal* node) {
 std::string CppCodeGenerator::visitNonTerminal(const NonTerminal* node) {
     std::ostringstream ss;
     std::string child_var = "child_" + std::to_string(variable_counter_++);
-    ss << "        // Parse non-terminal: " << node->name << "\n";
-    ss << "        auto " << child_var << " = parse_" << makeIdentifier(node->name) << "();\n";
+    ss << "        // Parse non-terminal: " << node->name;
+    
+    if (node->hasParameters()) {
+        ss << " with parameters [";
+        for (size_t i = 0; i < node->parameterValues.size(); ++i) {
+            if (i > 0) ss << ", ";
+            ss << node->parameterValues[i];
+        }
+        ss << "]";
+    }
+    ss << "\n";
+    
+    // Генерируем вызов функции с параметрами или без
+    ss << "        auto " << child_var << " = parse_" << makeIdentifier(node->name) << "(";
+    
+    if (node->hasParameters()) {
+        ss << generateParameterPassing(node->parameterValues);
+    }
+    
+    ss << ");\n";
     ss << "        if (!" << child_var << ") {\n";
     ss << "            pos_ = saved_pos;\n";
     ss << "            line_ = saved_line;\n";
@@ -297,60 +324,54 @@ std::string CppCodeGenerator::visitNonTerminal(const NonTerminal* node) {
 
 std::string CppCodeGenerator::visitCharRange(const CharRange* node) {
     std::ostringstream ss;
-    ss << "        // Match character range: '" << node->start << "' .. '" << node->end << "'\n";
-    ss << "        if (pos_ >= input_.size() || input_[pos_] < '" << node->start 
-       << "' || input_[pos_] > '" << node->end << "') {\n";
+    ss << "        // Match character range: U+" << std::hex << std::uppercase 
+       << node->start << " .. U+" << node->end << std::dec << std::nouppercase << "\n";
+    ss << "        if (pos_ >= input_.size()) {\n";
     ss << "            pos_ = saved_pos;\n";
     ss << "            line_ = saved_line;\n";
     ss << "            column_ = saved_column;\n";
     ss << "            --recursion_depth_;\n";
     ss << "            return nullptr;\n";
     ss << "        }\n";
-    ss << "        advance();\n";
+    ss << "        // Extract current codepoint\n";
+    ss << "        size_t char_len = 1;\n";
+    ss << "        uint32_t cp = static_cast<unsigned char>(input_[pos_]);\n";
+    ss << "        if ((input_[pos_] & 0x80) != 0) {\n";
+    ss << "            // UTF-8 multi-byte character\n";
+    ss << "            unsigned char firstByte = static_cast<unsigned char>(input_[pos_]);\n";
+    ss << "            if ((firstByte & 0xE0) == 0xC0) char_len = 2;\n";
+    ss << "            else if ((firstByte & 0xF0) == 0xE0) char_len = 3;\n";
+    ss << "            else if ((firstByte & 0xF8) == 0xF0) char_len = 4;\n";
+    ss << "            if (pos_ + char_len > input_.size()) {\n";
+    ss << "                pos_ = saved_pos;\n";
+    ss << "                line_ = saved_line;\n";
+    ss << "                column_ = saved_column;\n";
+    ss << "                --recursion_depth_;\n";
+    ss << "                return nullptr;\n";
+    ss << "            }\n";
+    ss << "            // Decode UTF-8 codepoint\n";
+    ss << "            if (char_len == 2) {\n";
+    ss << "                cp = ((firstByte & 0x1F) << 6) | (static_cast<unsigned char>(input_[pos_ + 1]) & 0x3F);\n";
+    ss << "            } else if (char_len == 3) {\n";
+    ss << "                cp = ((firstByte & 0x0F) << 12) | ((static_cast<unsigned char>(input_[pos_ + 1]) & 0x3F) << 6) | (static_cast<unsigned char>(input_[pos_ + 2]) & 0x3F);\n";
+    ss << "            } else if (char_len == 4) {\n";
+    ss << "                cp = ((firstByte & 0x07) << 18) | ((static_cast<unsigned char>(input_[pos_ + 1]) & 0x3F) << 12) | ((static_cast<unsigned char>(input_[pos_ + 2]) & 0x3F) << 6) | (static_cast<unsigned char>(input_[pos_ + 3]) & 0x3F);\n";
+    ss << "            }\n";
+    ss << "        }\n";
+    ss << "        if (cp < " << node->start << "U || cp > " << node->end << "U) {\n";
+    ss << "            pos_ = saved_pos;\n";
+    ss << "            line_ = saved_line;\n";
+    ss << "            column_ = saved_column;\n";
+    ss << "            --recursion_depth_;\n";
+    ss << "            return nullptr;\n";
+    ss << "        }\n";
+    ss << "        // Advance by character length\n";
+    ss << "        for (size_t i = 0; i < char_len; ++i) {\n";
+    ss << "            advance();\n";
+    ss << "        }\n";
     return ss.str();
 }
 
-// Helper function to generate inline parsing code for any node with success flag
-std::string CppCodeGenerator::generateInlineNode(const ASTNode* node, const std::string& success_var, const std::string& indent) {
-    std::ostringstream ss;
-    
-    if (const auto* term = dynamic_cast<const Terminal*>(node)) {
-        ss << indent << "if (" << success_var << " && !matchString(\"" << escapeString(term->value) << "\")) {\n";
-        ss << indent << "    " << success_var << " = false;\n";
-        ss << indent << "}\n";
-    } else if (const auto* nonterm = dynamic_cast<const NonTerminal*>(node)) {
-        std::string child_var = "inline_child_" + std::to_string(variable_counter_++);
-        ss << indent << "std::unique_ptr<ASTNode> " << child_var << ";\n";
-        ss << indent << "if (" << success_var << ") {\n";
-        ss << indent << "    " << child_var << " = parse_" << makeIdentifier(nonterm->name) << "();\n";
-        ss << indent << "    if (" << child_var << ") {\n";
-        ss << indent << "        node->children.push_back(std::move(" << child_var << "));\n";
-        ss << indent << "    } else {\n";
-        ss << indent << "        " << success_var << " = false;\n";
-        ss << indent << "    }\n";
-        ss << indent << "}\n";
-    } else if (const auto* seq = dynamic_cast<const Sequence*>(node)) {
-        for (const auto& elem : seq->elements) {
-            ss << generateInlineNode(elem.get(), success_var, indent);
-        }
-    } else if (const auto* grp = dynamic_cast<const Group*>(node)) {
-        ss << generateInlineNode(grp->content.get(), success_var, indent);
-    } else if (const auto* cr = dynamic_cast<const CharRange*>(node)) {
-        ss << indent << "if (" << success_var << " && (pos_ >= input_.size() || input_[pos_] < '" 
-           << cr->start << "' || input_[pos_] > '" << cr->end << "')) {\n";
-        ss << indent << "    " << success_var << " = false;\n";
-        ss << indent << "} else if (" << success_var << ") {\n";
-        ss << indent << "    advance();\n";
-        ss << indent << "}\n";
-    } else {
-        // For complex nodes (Optional, ZeroOrMore, etc.), fail for now
-        // These should not appear directly in alternatives without being wrapped in Sequence
-        ss << indent << "// Complex node type in alternative - not supported inline\n";
-        ss << indent << success_var << " = false;\n";
-    }
-    
-    return ss.str();
-}
 
 std::string CppCodeGenerator::visitAlternative(const Alternative* node) {
     std::ostringstream ss;
@@ -364,12 +385,14 @@ std::string CppCodeGenerator::visitAlternative(const Alternative* node) {
         ss << "                size_t alt_pos = pos_;\n";
         ss << "                size_t alt_line = line_;\n";
         ss << "                size_t alt_column = column_;\n";
-        ss << "                bool alt_success = true;\n";
+        ss << "                size_t alt_children_size = node->children.size();\n";
         
-        // Generate inline code for this alternative using helper
-        ss << generateInlineNode(node->choices[i].get(), "alt_success", "                ");
+        // Simple universal approach: use visitNode for any choice type
+        std::string choice_code = visitNode(node->choices[i].get());
+        ss << choice_code;
         
-        ss << "                if (alt_success) {\n";
+        // Check if parsing succeeded by comparing children count
+        ss << "                if (node->children.size() > alt_children_size) {\n";
         ss << "                    alt_matched = true;\n";
         ss << "                } else {\n";
         ss << "                    pos_ = alt_pos;\n";
@@ -411,25 +434,21 @@ std::string CppCodeGenerator::visitOptional(const Optional* node) {
     ss << "            size_t opt_pos = pos_;\n";
     ss << "            size_t opt_line = line_;\n";
     ss << "            size_t opt_column = column_;\n";
+    ss << "            size_t opt_children_size = node->children.size();\n";
     
-    if (const auto* nonterm = dynamic_cast<const NonTerminal*>(node->content.get())) {
-        std::string child_var = "opt_child";
-        ss << "            auto " << child_var << " = parse_" << makeIdentifier(nonterm->name) << "();\n";
-        ss << "            if (" << child_var << ") {\n";
-        ss << "                node->children.push_back(std::move(" << child_var << "));\n";
-        ss << "            } else {\n";
-        ss << "                pos_ = opt_pos;\n";
-        ss << "                line_ = opt_line;\n";
-        ss << "                column_ = opt_column;\n";
-        ss << "            }\n";
-    } else if (const auto* term = dynamic_cast<const Terminal*>(node->content.get())) {
-        ss << "            if (!matchString(\"" << escapeString(term->value) << "\")) {\n";
-        ss << "                pos_ = opt_pos;\n";
-        ss << "                line_ = opt_line;\n";
-        ss << "                column_ = opt_column;\n";
-        ss << "            }\n";
-    }
+    // Simple approach: try to parse content, restore state if failed
+    std::string content_code = visitNode(node->content.get());
+    ss << content_code;
+    
+    // Check if parsing succeeded by comparing children count
+    ss << "            if (node->children.size() == opt_children_size) {\n";
+    ss << "                // No new children added, optional content failed - restore state\n";
+    ss << "                pos_ = opt_pos;\n";
+    ss << "                line_ = opt_line;\n";
+    ss << "                column_ = opt_column;\n";
+    ss << "            }\n";
     ss << "        }\n";
+    
     return ss.str();
 }
 
@@ -440,90 +459,22 @@ std::string CppCodeGenerator::visitZeroOrMore(const ZeroOrMore* node) {
     ss << "            size_t rep_pos = pos_;\n";
     ss << "            size_t rep_line = line_;\n";
     ss << "            size_t rep_column = column_;\n";
+    ss << "            size_t rep_children_size = node->children.size();\n";
     
-    if (const auto* nonterm = dynamic_cast<const NonTerminal*>(node->content.get())) {
-        std::string child_var = "rep_child";
-        ss << "            auto " << child_var << " = parse_" << makeIdentifier(nonterm->name) << "();\n";
-        ss << "            if (!" << child_var << ") {\n";
-        ss << "                pos_ = rep_pos;\n";
-        ss << "                line_ = rep_line;\n";
-        ss << "                column_ = rep_column;\n";
-        ss << "                break;\n";
-        ss << "            }\n";
-        ss << "            node->children.push_back(std::move(" << child_var << "));\n";
-    } else if (const auto* term = dynamic_cast<const Terminal*>(node->content.get())) {
-        ss << "            if (!matchString(\"" << escapeString(term->value) << "\")) {\n";
-        ss << "                pos_ = rep_pos;\n";
-        ss << "                line_ = rep_line;\n";
-        ss << "                column_ = rep_column;\n";
-        ss << "                break;\n";
-        ss << "            }\n";
-    } else if (const auto* grp = dynamic_cast<const Group*>(node->content.get())) {
-        // Handle group (unwrap and process content)
-        if (const auto* alt = dynamic_cast<const Alternative*>(grp->content.get())) {
-            // Group contains Alternative
-            ss << "            bool rep_matched = false;\n";
-            for (size_t i = 0; i < alt->choices.size(); ++i) {
-                ss << "            if (!rep_matched) {\n";
-                ss << "                size_t alt_pos = pos_;\n";
-                ss << "                size_t alt_line = line_;\n";
-                ss << "                size_t alt_column = column_;\n";
-                if (const auto* term = dynamic_cast<const Terminal*>(alt->choices[i].get())) {
-                    ss << "                if (matchString(\"" << escapeString(term->value) << "\")) {\n";
-                    ss << "                    rep_matched = true;\n";
-                    ss << "                } else {\n";
-                    ss << "                    pos_ = alt_pos;\n";
-                    ss << "                    line_ = alt_line;\n";
-                    ss << "                    column_ = alt_column;\n";
-                    ss << "                }\n";
-                } else {
-                    ss << "                // TODO: Complex choice in repetition\n";
-                }
-                ss << "            }\n";
-            }
-            ss << "            if (!rep_matched) {\n";
-            ss << "                pos_ = rep_pos;\n";
-            ss << "                line_ = rep_line;\n";
-            ss << "                column_ = rep_column;\n";
-            ss << "                break;\n";
-            ss << "            }\n";
-        } else {
-            ss << "            // TODO: Group with non-alternative content\n";
-            ss << "            break;\n";
-        }
-    } else if (const auto* alt = dynamic_cast<const Alternative*>(node->content.get())) {
-        // Handle alternative inside repetition (direct, no group)
-        ss << "            bool rep_matched = false;\n";
-        for (size_t i = 0; i < alt->choices.size(); ++i) {
-            ss << "            if (!rep_matched) {\n";
-            ss << "                size_t alt_pos = pos_;\n";
-            ss << "                size_t alt_line = line_;\n";
-            ss << "                size_t alt_column = column_;\n";
-            if (const auto* term = dynamic_cast<const Terminal*>(alt->choices[i].get())) {
-                ss << "                if (matchString(\"" << escapeString(term->value) << "\")) {\n";
-                ss << "                    rep_matched = true;\n";
-                ss << "                } else {\n";
-                ss << "                    pos_ = alt_pos;\n";
-                ss << "                    line_ = alt_line;\n";
-                ss << "                    column_ = alt_column;\n";
-                ss << "                }\n";
-            } else {
-                ss << "                // TODO: Complex choice in repetition\n";
-            }
-            ss << "            }\n";
-        }
-        ss << "            if (!rep_matched) {\n";
-            ss << "                pos_ = rep_pos;\n";
-            ss << "                line_ = rep_line;\n";
-            ss << "                column_ = rep_column;\n";
-            ss << "                break;\n";
-            ss << "            }\n";
-    } else {
-        // Generic fallback - shouldn't happen in simple cases
-        ss << "            // TODO: Generic repetition content\n";
-        ss << "            break; // Prevent infinite loop\n";
-    }
+    // Simple universal approach: use visitNode for any content type
+    std::string content_code = visitNode(node->content.get());
+    ss << content_code;
+    
+    // Check if parsing succeeded by comparing children count
+    ss << "            if (node->children.size() == rep_children_size) {\n";
+    ss << "                // No new children added, content parsing failed\n";
+    ss << "                pos_ = rep_pos;\n";
+    ss << "                line_ = rep_line;\n";
+    ss << "                column_ = rep_column;\n";
+    ss << "                break;\n";
+    ss << "            }\n";
     ss << "        }\n";
+    
     return ss.str();
 }
 
@@ -536,19 +487,22 @@ std::string CppCodeGenerator::visitOneOrMore(const OneOrMore* node) {
     ss << "                size_t rep_pos = pos_;\n";
     ss << "                size_t rep_line = line_;\n";
     ss << "                size_t rep_column = column_;\n";
+    ss << "                size_t rep_children_size = node->children.size();\n";
     
-    if (const auto* nonterm = dynamic_cast<const NonTerminal*>(node->content.get())) {
-        std::string child_var = "rep_child";
-        ss << "                auto " << child_var << " = parse_" << makeIdentifier(nonterm->name) << "();\n";
-        ss << "                if (!" << child_var << ") {\n";
-        ss << "                    pos_ = rep_pos;\n";
-        ss << "                    line_ = rep_line;\n";
-        ss << "                    column_ = rep_column;\n";
-        ss << "                    break;\n";
-        ss << "                }\n";
-        ss << "                node->children.push_back(std::move(" << child_var << "));\n";
-        ss << "                matched_once = true;\n";
-    }
+    // Simple universal approach: use visitNode for any content type
+    std::string content_code = visitNode(node->content.get());
+    ss << content_code;
+    
+    // Check if parsing succeeded by comparing children count
+    ss << "                if (node->children.size() > rep_children_size) {\n";
+    ss << "                    matched_once = true;\n";
+    ss << "                } else {\n";
+    ss << "                    // No new children added, content parsing failed\n";
+    ss << "                    pos_ = rep_pos;\n";
+    ss << "                    line_ = rep_line;\n";
+    ss << "                    column_ = rep_column;\n";
+    ss << "                    break;\n";
+    ss << "                }\n";
     ss << "            }\n";
     ss << "            if (!matched_once) {\n";
     ss << "                pos_ = saved_pos;\n";
@@ -558,6 +512,7 @@ std::string CppCodeGenerator::visitOneOrMore(const OneOrMore* node) {
     ss << "                return nullptr;\n";
     ss << "            }\n";
     ss << "        }\n";
+    
     return ss.str();
 }
 
@@ -631,7 +586,7 @@ std::string CppCodeGenerator::generateMainCpp(const Grammar& /* grammar */) {
     ss << "#include <cstring>\n\n";
     
     ss << "// Include the generated parser\n";
-    ss << "#include \"" << makeIdentifier(options_.parser_name) << ".cpp\"\n\n";
+    ss << "#include \"" << camelToSnake(options_.parser_name) << ".cpp\"\n\n";
     
     if (!options_.namespace_name.empty()) {
         ss << "using namespace " << options_.namespace_name << ";\n\n";
@@ -726,6 +681,215 @@ std::string CppCodeGenerator::generateMainCpp(const Grammar& /* grammar */) {
     ss << "}\n";
     
     return ss.str();
+}
+
+// Extended BNF методы
+
+std::string CppCodeGenerator::visitContextAction(const ContextAction* node) {
+    std::ostringstream ss;
+    ss << "        // Context action: " << node->toString() << "\n";
+    
+    switch (node->actionType) {
+        case ContextAction::ActionType::STORE:
+            if (node->arguments.size() >= 2) {
+                ss << "        context_storage_[\"" << node->arguments[0] << "\"] = " 
+                   << node->arguments[1] << ";\n";
+            }
+            break;
+        case ContextAction::ActionType::LOOKUP:
+            if (node->arguments.size() >= 1) {
+                ss << "        if (context_storage_.find(\"" << node->arguments[0] 
+                   << "\") == context_storage_.end()) {\n";
+                ss << "            pos_ = saved_pos;\n";
+                ss << "            line_ = saved_line;\n";
+                ss << "            column_ = saved_column;\n";
+                ss << "            --recursion_depth_;\n";
+                ss << "            return nullptr; // Context lookup failed\n";
+                ss << "        }\n";
+            }
+            break;
+        case ContextAction::ActionType::CHECK:
+            if (node->arguments.size() >= 1) {
+                ss << "        if (!(" << node->arguments[0] << ")) {\n";
+                ss << "            pos_ = saved_pos;\n";
+                ss << "            line_ = saved_line;\n";
+                ss << "            column_ = saved_column;\n";
+                ss << "            --recursion_depth_;\n";
+                ss << "            return nullptr; // Context check failed\n";
+                ss << "        }\n";
+            }
+            break;
+    }
+    
+    return ss.str();
+}
+
+std::string CppCodeGenerator::generateParameterizedFunction(const ProductionRule& rule) {
+    std::ostringstream ss;
+    std::string func_name = "parse_" + makeIdentifier(rule.leftSide);
+    
+    // Генерируем сигнатуру функции с параметрами
+    ss << "    std::shared_ptr<ASTNode> " << func_name << "(";
+    
+    if (!rule.parameters.empty()) {
+        ss << generateParameterDeclarations(rule.parameters);
+    }
+    
+    ss << ") {\n";
+    ss << "        if (++recursion_depth_ > max_recursion_depth_) {\n";
+    ss << "            --recursion_depth_;\n";
+    ss << "            return nullptr; // Max recursion depth exceeded\n";
+    ss << "        }\n\n";
+    
+    ss << "        size_t saved_pos = pos_;\n";
+    ss << "        size_t saved_line = line_;\n";
+    ss << "        size_t saved_column = column_;\n";
+    ss << "        auto node = std::make_shared<ASTNode>(\"" << rule.leftSide << "\");\n\n";
+    
+    // Генерируем тело функции
+    ss << visitNode(rule.rightSide.get());
+    
+    ss << "\n        --recursion_depth_;\n";
+    ss << "        return node;\n";
+    ss << "    }\n\n";
+    
+    return ss.str();
+}
+
+std::string CppCodeGenerator::generateParameterTypes(const std::vector<RuleParameter>& params) {
+    std::ostringstream ss;
+    
+    for (const auto& param : params) {
+        switch (param.type) {
+            case ParameterType::ENUM:
+                ss << generateEnumDeclaration(param) << "\n";
+                break;
+            case ParameterType::INTEGER:
+            case ParameterType::STRING:
+            case ParameterType::BOOLEAN:
+                // Встроенные типы не требуют объявления
+                break;
+        }
+    }
+    
+    return ss.str();
+}
+
+std::string CppCodeGenerator::generateParameterDeclarations(const std::vector<RuleParameter>& params) {
+    std::ostringstream ss;
+    
+    for (size_t i = 0; i < params.size(); ++i) {
+        if (i > 0) ss << ", ";
+        
+        switch (params[i].type) {
+            case ParameterType::ENUM:
+                ss << params[i].name << "Enum " << params[i].name;
+                break;
+            case ParameterType::INTEGER:
+                ss << "int " << params[i].name;
+                break;
+            case ParameterType::STRING:
+                ss << "const std::string& " << params[i].name;
+                break;
+            case ParameterType::BOOLEAN:
+                ss << "bool " << params[i].name;
+                break;
+        }
+    }
+    
+    return ss.str();
+}
+
+std::string CppCodeGenerator::generateParameterPassing(const std::vector<std::string>& paramValues) {
+    std::ostringstream ss;
+    
+    for (size_t i = 0; i < paramValues.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << paramValues[i];
+    }
+    
+    return ss.str();
+}
+
+std::string CppCodeGenerator::generateEnumDeclaration(const RuleParameter& param) {
+    std::ostringstream ss;
+    
+    ss << "enum class " << param.name << "Enum {\n";
+    for (size_t i = 0; i < param.enumValues.size(); ++i) {
+        if (i > 0) ss << ",\n";
+        ss << "    " << param.enumValues[i];
+    }
+    ss << "\n};\n";
+    
+    return ss.str();
+}
+
+std::string CppCodeGenerator::generateContextStorage() {
+    return "    std::unordered_map<std::string, std::string> context_storage_;\n";
+}
+
+std::string CppCodeGenerator::generateContextActions(const ContextAction* action) {
+    return visitContextAction(action);
+}
+
+bool CppCodeGenerator::isExtendedBNF(const Grammar& grammar) const {
+    return grammar.isContextSensitive();
+}
+
+bool CppCodeGenerator::hasParameterizedRules(const Grammar& grammar) const {
+    for (const auto& rule : grammar.rules) {
+        if (rule->hasParameters()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CppCodeGenerator::hasContextActions(const Grammar& grammar) const {
+    // Проверяем наличие контекстных действий в правилах
+    for (const auto& rule : grammar.rules) {
+        if (hasContextActionsInNode(rule->rightSide.get())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Вспомогательный метод для поиска контекстных действий в узлах
+bool CppCodeGenerator::hasContextActionsInNode(const ASTNode* node) const {
+    if (dynamic_cast<const ContextAction*>(node)) {
+        return true;
+    }
+    
+    if (const auto* seq = dynamic_cast<const Sequence*>(node)) {
+        for (const auto& elem : seq->elements) {
+            if (hasContextActionsInNode(elem.get())) return true;
+        }
+    }
+    
+    if (const auto* alt = dynamic_cast<const Alternative*>(node)) {
+        for (const auto& choice : alt->choices) {
+            if (hasContextActionsInNode(choice.get())) return true;
+        }
+    }
+    
+    if (const auto* grp = dynamic_cast<const Group*>(node)) {
+        return hasContextActionsInNode(grp->content.get());
+    }
+    
+    if (const auto* opt = dynamic_cast<const Optional*>(node)) {
+        return hasContextActionsInNode(opt->content.get());
+    }
+    
+    if (const auto* zom = dynamic_cast<const ZeroOrMore*>(node)) {
+        return hasContextActionsInNode(zom->content.get());
+    }
+    
+    if (const auto* oom = dynamic_cast<const OneOrMore*>(node)) {
+        return hasContextActionsInNode(oom->content.get());
+    }
+    
+    return false;
 }
 
 } // namespace bnf_parser_generator

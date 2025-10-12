@@ -27,6 +27,10 @@ enum class TokenType {
     STAR,           // *
     QUESTION,       // ?
     DOT_DOT,        // ..
+    COMMA,          // , (для параметров)
+    COLON,          // : (для типов параметров)
+    ACTION_OPEN,    // { (начало контекстного действия)
+    ACTION_CLOSE,   // } (конец контекстного действия)
     COMMENT,        // # комментарий
     NEWLINE,        // \n
     EOF_TOKEN,      // конец файла
@@ -127,6 +131,15 @@ private:
     
     // Специальные конструкции
     std::unique_ptr<ASTNode> parseCharRange();
+    
+    // Extended BNF для контекстно-зависимых грамматик
+    std::vector<RuleParameter> parseRuleParameters();  // [param1, param2:type]
+    RuleParameter parseRuleParameter();                 // param:type
+    ParameterType parseParameterType();                 // enum{val1,val2} | int | string | bool
+    std::vector<std::string> parseEnumValues();        // {val1, val2, val3}
+    std::vector<std::string> parseParameterValues();   // [val1, val2] для вызовов
+    std::unique_ptr<ContextAction> parseContextAction(); // {store(name, value)}
+    std::unique_ptr<NonTerminal> parseParameterizedNonTerminal(); // <rule>[param1, param2]
 };
 
 /**
@@ -148,6 +161,11 @@ public:
     // Создание простых грамматик для тестирования
     static std::unique_ptr<Grammar> createArithmeticGrammar();
     static std::unique_ptr<Grammar> createIdentifierGrammar();
+    
+    // Extended BNF примеры (контекстно-зависимые грамматики)
+    static std::unique_ptr<Grammar> createAgreementGrammar();      // Согласование: noun[N] verb[N]
+    static std::unique_ptr<Grammar> createIndentationGrammar();    // Python-style indentation
+    static std::unique_ptr<Grammar> createYamlAnchorsGrammar();    // YAML anchors and references
 };
 
 } // namespace bnf_parser_generator

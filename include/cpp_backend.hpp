@@ -59,6 +59,9 @@ protected:
     std::string visitZeroOrMore(const ZeroOrMore* node) override;
     std::string visitOneOrMore(const OneOrMore* node) override;
     
+    // Extended BNF visitor методы
+    std::string visitContextAction(const ContextAction* node);
+    
     // Генерация функций для правил
     std::string generateRuleFunction(const ProductionRule& rule) override;
 
@@ -80,7 +83,6 @@ private:
     std::string generateFunctionSignature(const std::string& rule_name) const;
     std::string generateTokenMatchCode(const std::string& token_value) const;
     std::string generateErrorHandling(const std::string& expected) const;
-    std::string generateInlineNode(const ASTNode* node, const std::string& success_var, const std::string& indent);
     
     // AST генерация
     std::string generateASTNodeType(const std::string& rule_name) const;
@@ -96,6 +98,21 @@ private:
     
     // Обобщённый метод визитации узлов
     std::string visitNode(const ASTNode* node);
+    
+    // Extended BNF методы
+    std::string generateParameterizedFunction(const ProductionRule& rule);
+    std::string generateParameterTypes(const std::vector<RuleParameter>& params);
+    std::string generateParameterDeclarations(const std::vector<RuleParameter>& params);
+    std::string generateParameterPassing(const std::vector<std::string>& paramValues);
+    std::string generateEnumDeclaration(const RuleParameter& param);
+    std::string generateContextStorage();  // Для YAML anchors и т.д.
+    std::string generateContextActions(const ContextAction* action);
+    
+    // Проверка поддерживаемых возможностей
+    bool isExtendedBNF(const Grammar& grammar) const;
+    bool hasParameterizedRules(const Grammar& grammar) const;
+    bool hasContextActions(const Grammar& grammar) const;
+    bool hasContextActionsInNode(const ASTNode* node) const;
 };
 
 } // namespace bnf_parser_generator

@@ -1,4 +1,5 @@
 #include "utf8_utils.hpp"
+#include <stdexcept>
 
 namespace bnf_parser_generator {
 namespace utf8 {
@@ -80,6 +81,78 @@ size_t length(const std::string& str) {
     }
     
     return count;
+}
+
+std::string codepointToUtf8(uint32_t codepoint) {
+    std::string result;
+    
+    if (codepoint > 0x10FFFF) {
+        throw std::runtime_error("Invalid Unicode codepoint: exceeds U+10FFFF");
+    }
+    
+    // Surrogate pairs (U+D800 - U+DFFF) are invalid in UTF-8
+    if (codepoint >= 0xD800 && codepoint <= 0xDFFF) {
+        throw std::runtime_error("Invalid Unicode codepoint: surrogate pair range");
+    }
+    
+    if (codepoint <= 0x7F) {
+        // 1-byte sequence: 0xxxxxxx
+        result += static_cast<char>(codepoint);
+    } else if (codepoint <= 0x7FF) {
+        // 2-byte sequence: 110xxxxx 10xxxxxx
+        result += static_cast<char>(0xC0 | (codepoint >> 6));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else if (codepoint <= 0xFFFF) {
+        // 3-byte sequence: 1110xxxx 10xxxxxx 10xxxxxx
+        result += static_cast<char>(0xE0 | (codepoint >> 12));
+        result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    } else {
+        // 4-byte sequence: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        result += static_cast<char>(0xF0 | (codepoint >> 18));
+        result += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
+        result += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+        result += static_cast<char>(0x80 | (codepoint & 0x3F));
+    }
+    
+    return result;
+}
+
+uint32_t utf8ToCodepoint(const std::string& utf8Str) {
+    if (utf8Str.empty()) {
+        return 0;
+    }
+    
+    unsigned char firstByte = static_cast<unsigned char>(utf8Str[0]);
+    size_t len = charLength(firstByte);
+    
+    if (utf8Str.length() < len) {
+        return 0; // Невалидная последовательность
+    }
+    
+    uint32_t codepoint = 0;
+    
+    if (len == 1) {
+        // ASCII: 0xxxxxxx
+        codepoint = firstByte;
+    } else if (len == 2) {
+        // 2-byte: 110xxxxx 10xxxxxx
+        codepoint = (firstByte & 0x1F) << 6;
+        codepoint |= (static_cast<unsigned char>(utf8Str[1]) & 0x3F);
+    } else if (len == 3) {
+        // 3-byte: 1110xxxx 10xxxxxx 10xxxxxx
+        codepoint = (firstByte & 0x0F) << 12;
+        codepoint |= (static_cast<unsigned char>(utf8Str[1]) & 0x3F) << 6;
+        codepoint |= (static_cast<unsigned char>(utf8Str[2]) & 0x3F);
+    } else if (len == 4) {
+        // 4-byte: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+        codepoint = (firstByte & 0x07) << 18;
+        codepoint |= (static_cast<unsigned char>(utf8Str[1]) & 0x3F) << 12;
+        codepoint |= (static_cast<unsigned char>(utf8Str[2]) & 0x3F) << 6;
+        codepoint |= (static_cast<unsigned char>(utf8Str[3]) & 0x3F);
+    }
+    
+    return codepoint;
 }
 
 // Utf8Iterator implementation

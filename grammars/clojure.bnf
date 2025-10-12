@@ -3,15 +3,21 @@
 
 # Whitespace and Comments
 WHITESPACE ::= (' ' | '\t' | '\n' | '\r' | ',')+
-LINE_COMMENT ::= ';' [^\n]* '\n'?
+LINE_COMMENT ::= ';' comment_chars '\n'?
+comment_chars ::= comment_char*
+comment_char ::= '\u0009' | '\u0020'..'\U0010FFFF'
 DISCARD ::= '#_'
 
 # Basic tokens
 SYMBOL ::= symbol_start symbol_char*
 KEYWORD ::= ':' symbol_char+
 NUMBER ::= '-'? (integer | decimal | ratio | scientific)
-STRING ::= '"' ([^"\\] | escape_sequence)* '"'
-CHARACTER ::= '\\' (named_char | unicode_char | any_char)
+STRING ::= '"' string_content '"'
+string_content ::= string_part*
+string_part ::= string_plain_char | escape_sequence
+string_plain_char ::= '\u0020'..'\u0021' | '\u0023'..'\u005B' | '\u005D'..'\U0010FFFF'
+CHARACTER ::= '\\' (named_char | unicode_char | character_literal)
+character_literal ::= '\u0020'..'\U0010FFFF'
 BOOLEAN ::= 'true' | 'false'
 NIL ::= 'nil'
 
@@ -32,7 +38,10 @@ UNQUOTE_SPLICING ::= '~@'
 DEREF ::= '@'
 META ::= '^'
 VAR_QUOTE ::= '#\''
-REGEX ::= '#"' ([^"\\] | escape_sequence)* '"'
+REGEX ::= '#"' regex_content '"'
+regex_content ::= regex_part*
+regex_part ::= regex_plain_char | escape_sequence
+regex_plain_char ::= '\u0020'..'\u0021' | '\u0023'..'\u005B' | '\u005D'..'\U0010FFFF'
 TAGGED_LITERAL ::= '#' symbol
 
 # Character classes
@@ -51,7 +60,6 @@ scientific ::= (integer | decimal) ('e' | 'E') ('+' | '-')? integer
 # Character formats
 named_char ::= 'newline' | 'space' | 'tab' | 'return' | 'backspace' | 'formfeed'
 unicode_char ::= 'u' hex_digit hex_digit hex_digit hex_digit
-any_char ::= .
 hex_digit ::= digit | 'a'..'f' | 'A'..'F'
 
 # Escape sequences

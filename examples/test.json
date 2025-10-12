@@ -1,0 +1,31 @@
+{
+  "name": "BNF Parser Generator",
+  "version": 1.0,
+  "features": [
+    "Unicode support",
+    "EBNF syntax",
+    "Code generation"
+  ],
+  "config": {
+    "debug": false,
+    "recursion_limit": 1000,
+    "nested": {
+      "value": null,
+      "flag": true
+    }
+  },
+  "description": "Генератор парсеров с полной поддержкой Unicode",
+  "emoji": "🚀",
+  "unicode_test": "Привет мир! 你好世界! مرحبا بالعالم",
+  "escapes": "Line1\nLine2\tTabbed\r\nWindows\\Path\"Quote\"",
+  "numbers": {
+    "integer": 42,
+    "negative": -123,
+    "decimal": 3.14159,
+    "scientific": 2.5e-10,
+    "large": 1.23e+100
+  },
+  "empty_array": [],
+  "empty_object": {}
+}
+

@@ -1,0 +1,52 @@
+# Extended BNF Grammar: YAML Anchors and References
+# Demonstrates context-sensitive grammar with context actions
+
+# YAML document with anchors and references
+document ::= element*
+
+element ::= anchor | reference | value
+
+# Anchor definition: stores value for later reference
+anchor ::= "&" anchor_name value {store(anchor_name, value)}
+
+# Reference: looks up previously stored anchor
+reference ::= "*" anchor_name {lookup(anchor_name)}
+
+# Values
+value ::= scalar | sequence | mapping
+
+scalar ::= string | number | boolean | null
+
+sequence ::= "[" value_list "]"
+value_list ::= value ("," value)*
+
+mapping ::= "{" pair_list "}"
+pair_list ::= pair ("," pair)*
+pair ::= key ":" value
+
+# Basic types
+string ::= '"' string_char* '"'
+string_char ::= letter | digit | ' ' | '_' | '-'
+
+number ::= '-'? digit+ ('.' digit+)?
+
+boolean ::= "true" | "false"
+
+null ::= "null"
+
+key ::= string | identifier
+
+anchor_name ::= identifier
+identifier ::= letter (letter | digit | '_')*
+
+letter ::= 'a'..'z' | 'A'..'Z'
+digit ::= '0'..'9'
+
+# Examples of valid YAML with anchors:
+# &default_config {
+#   host: "localhost",
+#   port: 8080
+# }
+# 
+# production: *default_config
+# development: *default_config

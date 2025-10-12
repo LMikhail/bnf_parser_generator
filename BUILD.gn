@@ -38,6 +38,7 @@ if (bnf_parser_generator_library_type == "shared") {
       "src/bnf_parser.cpp", 
       "src/bnf_lexer.cpp",
       "src/bnf_factory.cpp",
+      "src/bnf_ast.cpp",
       "src/utf8_utils.cpp",
       
       # Генератор кода
@@ -64,6 +65,7 @@ if (bnf_parser_generator_library_type == "shared") {
       "src/bnf_parser.cpp", 
       "src/bnf_lexer.cpp",
       "src/bnf_factory.cpp",
+      "src/bnf_ast.cpp",
       "src/utf8_utils.cpp",
       
       # Генератор кода
@@ -81,6 +83,9 @@ if (bnf_parser_generator_library_type == "shared") {
       "grammars/prolog.bnf",
       "grammars/json.bnf",
       "grammars/clojure.bnf",
+      "grammars/agreement.bnf",
+      "grammars/indentation.bnf",
+      "grammars/yaml_anchors.bnf",
     ]
   }
 }
@@ -115,6 +120,12 @@ if (bnf_parser_generator_enable_tests) {
     sources = [ "tests/generator_test.cpp" ]
     deps = [ ":bnf_parser_generator" ]
   }
+  
+  executable("extended_bnf_test") {
+    testonly = true
+    sources = [ "tests/extended_bnf_test.cpp" ]
+    deps = [ ":bnf_parser_generator" ]
+  }
 }
 
 # Примеры (если включены)
@@ -131,6 +142,7 @@ group("tests") {
       ":basic_test",
       ":utf8_test",
       ":generator_test",
+      ":extended_bnf_test",
     ]
   }
 }

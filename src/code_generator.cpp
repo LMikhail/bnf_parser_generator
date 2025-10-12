@@ -61,6 +61,23 @@ std::string CodeGenerator::makeIdentifier(const std::string& name) const {
     return result;
 }
 
+std::string CodeGenerator::camelToSnake(const std::string& name) const {
+    std::string result;
+    for (size_t i = 0; i < name.length(); ++i) {
+        char c = name[i];
+        
+        // Если это заглавная буква (не первая), добавляем подчёркивание
+        if (std::isupper(c) && i > 0) {
+            result += '_';
+        }
+        
+        // Добавляем букву в нижнем регистре
+        result += std::tolower(c);
+    }
+    
+    return result;
+}
+
 // Реализация фабрики генераторов
 
 std::unique_ptr<CodeGenerator> CodeGeneratorFactory::create(const std::string& language) {

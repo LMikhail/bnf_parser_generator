@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <cctype>
 
 using namespace bnf_parser_generator;
 
@@ -28,8 +29,10 @@ void printHelp(const char* program_name) {
     std::cout << "\nUsage: " << program_name << " [options]\n";
     std::cout << "\nOptions:\n";
     std::cout << "  -i, --input FILE       Input BNF/EBNF grammar file (required)\n";
-    std::cout << "  -o, --output FILE      Output parser file (default: auto-generated)\n";
-    std::cout << "  --output-dir DIR       Output directory for generated files (default: .)\n";
+    std::cout << "  -o, --output FILE      Output parser file name (without path)\n";
+    std::cout << "  --output-dir DIR       Output directory for generated files\n";
+    std::cout << "                         Default: generated/<bnf_name>/<format>/\n";
+    std::cout << "                         For executables: generated/<bnf_name>/exec/<debug|release>/\n";
     std::cout << "  -l, --language LANG    Target language: cpp, dart, java, clojure (default: cpp)\n";
     std::cout << "  -n, --name NAME        Parser class name (default: GeneratedParser)\n";
     std::cout << "  --namespace NAME       Namespace/package name (optional)\n";
@@ -215,23 +218,51 @@ int main(int argc, char* argv[]) {
         GeneratorOptions gen_options;
         gen_options.target_language = options.language;
         
-        // Извлекаем базовое имя файла из output_file
-        if (!options.output_file.empty()) {
-            std::string base_name = options.output_file;
-            // Убираем путь
-            size_t last_slash = base_name.find_last_of("/\\");
-            if (last_slash != std::string::npos) {
-                base_name = base_name.substr(last_slash + 1);
-            }
-            // Убираем расширение .cpp
-            size_t last_dot = base_name.find_last_of(".");
-            if (last_dot != std::string::npos) {
-                base_name = base_name.substr(0, last_dot);
-            }
-            gen_options.parser_name = base_name;
-        } else {
-            gen_options.parser_name = options.parser_name;
+        // Определяем имя парсера
+        std::string parser_name;
+        
+        // 1. Если указан --name, используем его
+        if (options.parser_name != "GeneratedParser") {
+            parser_name = options.parser_name;
         }
+        // 2. Если указан --output, извлекаем из него
+        else if (!options.output_file.empty()) {
+            parser_name = options.output_file;
+            // Убираем путь
+            size_t last_slash = parser_name.find_last_of("/\\");
+            if (last_slash != std::string::npos) {
+                parser_name = parser_name.substr(last_slash + 1);
+            }
+            // Убираем расширение
+            size_t last_dot = parser_name.find_last_of(".");
+            if (last_dot != std::string::npos) {
+                parser_name = parser_name.substr(0, last_dot);
+            }
+        }
+        // 3. Иначе извлекаем из имени входного BNF файла
+        else {
+            parser_name = options.input_file;
+            // Убираем путь
+            size_t last_slash = parser_name.find_last_of("/\\");
+            if (last_slash != std::string::npos) {
+                parser_name = parser_name.substr(last_slash + 1);
+            }
+            // Убираем расширение .bnf
+            size_t last_dot = parser_name.find_last_of(".");
+            if (last_dot != std::string::npos) {
+                parser_name = parser_name.substr(0, last_dot);
+            }
+            
+            // Преобразуем в CamelCase для имени класса: json -> JsonParser
+            if (!parser_name.empty()) {
+                // Первая буква в верхний регистр
+                parser_name[0] = std::toupper(parser_name[0]);
+                // Добавляем суффикс Parser
+                parser_name += "Parser";
+            }
+        }
+        
+        gen_options.parser_name = parser_name;
         
         gen_options.namespace_name = options.namespace_name;
         gen_options.debug_mode = options.debug_mode;
@@ -244,15 +275,47 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         
-        // Корректируем имя main файла на основе parser_name
-        if (!result.main_filename.empty()) {
-            result.main_filename = gen_options.parser_name + "_main.cpp";
+        // Определение выходной директории
+        std::string output_dir = options.output_dir;
+        if (output_dir == ".") {
+            // Извлекаем имя BNF файла без расширения
+            std::string bnf_name = options.input_file;
+            size_t last_slash = bnf_name.find_last_of("/\\");
+            if (last_slash != std::string::npos) {
+                bnf_name = bnf_name.substr(last_slash + 1);
+            }
+            size_t last_dot = bnf_name.find_last_of(".");
+            if (last_dot != std::string::npos) {
+                bnf_name = bnf_name.substr(0, last_dot);
+            }
+            
+            // Формируем путь: generated/${bnf_name}/${format}/
+            std::string target_type = options.format;
+            if (target_type == "source-only") {
+                target_type = "source";
+            }
+            
+            // Для executable добавляем debug/release
+            if (options.format == "executable" || options.generate_executable) {
+                std::string build_type = options.debug_mode ? "debug" : "release";
+                output_dir = "generated/" + bnf_name + "/exec/" + build_type;
+            } else {
+                output_dir = "generated/" + bnf_name + "/" + target_type;
+            }
+        }
+        
+        // Создаем выходную директорию
+        std::string mkdir_cmd = "mkdir -p " + output_dir;
+        if (system(mkdir_cmd.c_str()) != 0) {
+            std::cerr << "Warning: Failed to create directory: " << output_dir << "\n";
         }
         
         // Определение имени выходного файла
-        std::string output_file = options.output_file;
-        if (output_file.empty()) {
-            output_file = result.parser_filename;
+        std::string output_file;
+        if (!options.output_file.empty()) {
+            output_file = output_dir + "/" + options.output_file;
+        } else {
+            output_file = output_dir + "/" + result.parser_filename;
         }
         
         // Запись сгенерированного кода
@@ -291,27 +354,28 @@ int main(int argc, char* argv[]) {
         
         // Запись main.cpp если сгенерирован исполняемый файл
         if (!result.main_code.empty()) {
-            std::ofstream main_out(result.main_filename);
+            std::string main_output_file = output_dir + "/" + result.main_filename;
+            std::ofstream main_out(main_output_file);
             if (!main_out) {
-                std::cerr << "Error: Cannot write to file: " << result.main_filename << "\n";
+                std::cerr << "Error: Cannot write to file: " << main_output_file << "\n";
                 return 1;
             }
             main_out << result.main_code;
             main_out.close();
             
             if (options.verbose) {
-                std::cout << "  ✓ Generated main.cpp: " << result.main_filename << "\n";
+                std::cout << "  ✓ Generated main.cpp: " << main_output_file << "\n";
             }
         }
         
         if (!options.verbose) {
-            std::cout << "Generated: " << output_file;
+            std::cout << "Generated in " << output_dir << ": " << result.parser_filename;
             if (!result.main_filename.empty()) {
                 std::cout << ", " << result.main_filename;
             }
             std::cout << "\n";
         } else {
-            std::cout << "\n✅ Success!\n";
+            std::cout << "\n✅ Success! Files generated in: " << output_dir << "\n";
         }
         
         return 0;

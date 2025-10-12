@@ -1,4 +1,5 @@
 #include "bnf_parser.hpp"
+#include "utf8_utils.hpp"
 #include <cctype>
 #include <stdexcept>
 
@@ -91,6 +92,14 @@ std::vector<BNFToken> BNFLexer::tokenize() {
                 tokens.emplace_back(TokenType::QUESTION, "?", line_, column_);
                 advance();
                 break;
+            case ',':
+                tokens.emplace_back(TokenType::COMMA, ",", line_, column_);
+                advance();
+                break;
+            case ':':
+                tokens.emplace_back(TokenType::COLON, ":", line_, column_);
+                advance();
+                break;
             default:
                 // Идентификаторы и нетерминалы
                 if (isAlpha(c) || c == '_' || c == '<') {
@@ -153,18 +162,58 @@ BNFToken BNFLexer::readString() {
         
         if (c == '\\') {
             advance(); // Пропускаем обратный слеш
-            char escaped = advance();
-            switch (escaped) {
-                case 'n': value += '\n'; break;
-                case 't': value += '\t'; break;
-                case 'r': value += '\r'; break;
-                case '\\': value += '\\'; break;
-                case '"': value += '"'; break;
-                case '\'': value += '\''; break;
-                default: 
-                    value += '\\';
-                    value += escaped;
-                    break;
+            char escaped = peek();
+            
+            // Обработка Unicode escape-последовательностей \uXXXX или \UXXXXXXXX
+            if (escaped == 'u' || escaped == 'U') {
+                bool isExtended = (escaped == 'U');
+                advance(); // Пропускаем 'u' или 'U'
+                
+                // Читаем 4 или 8 шестнадцатеричных цифр
+                int hexDigits = isExtended ? 8 : 4;
+                std::string hexCode;
+                for (int i = 0; i < hexDigits; ++i) {
+                    char hexChar = peek();
+                    if ((hexChar >= '0' && hexChar <= '9') ||
+                        (hexChar >= 'a' && hexChar <= 'f') ||
+                        (hexChar >= 'A' && hexChar <= 'F')) {
+                        hexCode += advance();
+                    } else {
+                        throw std::runtime_error("Invalid Unicode escape sequence at line " + 
+                                                std::to_string(line_) + ", column " + 
+                                                std::to_string(column_));
+                    }
+                }
+                
+                // Преобразуем hex в число
+                uint32_t codepoint = 0;
+                for (char hexChar : hexCode) {
+                    codepoint = codepoint * 16;
+                    if (hexChar >= '0' && hexChar <= '9') {
+                        codepoint += (hexChar - '0');
+                    } else if (hexChar >= 'a' && hexChar <= 'f') {
+                        codepoint += (hexChar - 'a' + 10);
+                    } else if (hexChar >= 'A' && hexChar <= 'F') {
+                        codepoint += (hexChar - 'A' + 10);
+                    }
+                }
+                
+                // Используем utf8 утилиты для преобразования codepoint в UTF-8
+                value += utf8::codepointToUtf8(codepoint);
+            } else {
+                advance();
+                switch (escaped) {
+                    case 'n': value += '\n'; break;
+                    case 't': value += '\t'; break;
+                    case 'r': value += '\r'; break;
+                    case '\\': value += '\\'; break;
+                    case '"': value += '"'; break;
+                    case '\'': value += '\''; break;
+                    default: 
+                        value += '\\';
+                        value += escaped;
+                        break;
+                }
             }
         } else {
             value += advance();

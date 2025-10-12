@@ -1,0 +1,7 @@
+&default_config {
+  "host": "localhost",
+  "port": 8080
+}
+
+production: *default_config
+development: *default_config

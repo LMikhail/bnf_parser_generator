@@ -1,0 +1,20 @@
+# Extended BNF Grammar: Agreement (Noun-Verb Agreement)
+# Demonstrates context-sensitive grammar with parameter passing
+
+# Agreement rule with parameter N (Number: singular/plural)
+agreement[N:enum{sing,plur}] ::= noun[N] verb[N]
+
+# Nouns with number parameter
+noun[sing] ::= "cat" | "dog" | "bird"
+noun[plur] ::= "cats" | "dogs" | "birds"
+
+# Verbs with number parameter  
+verb[sing] ::= "runs" | "jumps" | "flies"
+verb[plur] ::= "run" | "jump" | "fly"
+
+# Examples of valid sentences:
+# - "cat runs" (both singular)
+# - "cats run" (both plural)
+# Invalid sentences would be:
+# - "cat run" (mismatch: singular noun with plural verb)
+# - "cats runs" (mismatch: plural noun with singular verb)

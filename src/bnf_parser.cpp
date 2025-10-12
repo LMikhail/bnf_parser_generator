@@ -1,4 +1,5 @@
 #include "bnf_parser.hpp"
+#include "utf8_utils.hpp"
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
@@ -39,6 +40,9 @@ std::unique_ptr<Grammar> BNFParser::parseGrammar() {
             return nullptr;
         }
         
+        // Определяем стартовый символ после добавления всех правил
+        grammar->determineStartSymbol();
+        
         return grammar;
         
     } catch (const std::exception& e) {
@@ -48,7 +52,7 @@ std::unique_ptr<Grammar> BNFParser::parseGrammar() {
 }
 
 std::unique_ptr<ProductionRule> BNFParser::parseRule() {
-    // Ожидаем: IDENTIFIER ::= expression
+    // Ожидаем: IDENTIFIER [param1, param2:type] ::= expression
     
     if (!check(TokenType::IDENTIFIER)) {
         error("Expected rule name (identifier)");
@@ -57,6 +61,12 @@ std::unique_ptr<ProductionRule> BNFParser::parseRule() {
     
     BNFToken nameToken = advance();
     std::string ruleName = nameToken.value;
+    
+    // Парсим параметры правила (опционально)
+    std::vector<RuleParameter> parameters;
+    if (check(TokenType::LEFT_BRACKET)) {
+        parameters = parseRuleParameters();
+    }
     
     if (!match(TokenType::DEFINE)) {
         error("Expected '::=' after rule name");
@@ -73,7 +83,11 @@ std::unique_ptr<ProductionRule> BNFParser::parseRule() {
         advance();
     }
     
-    return std::make_unique<ProductionRule>(ruleName, std::move(expression));
+    if (parameters.empty()) {
+        return std::make_unique<ProductionRule>(ruleName, std::move(expression));
+    } else {
+        return std::make_unique<ProductionRule>(ruleName, parameters, std::move(expression));
+    }
 }
 
 std::unique_ptr<ASTNode> BNFParser::parseExpression() {
@@ -159,11 +173,46 @@ std::unique_ptr<ASTNode> BNFParser::parseFactor() {
 }
 
 std::unique_ptr<ASTNode> BNFParser::parsePrimary() {
-    // primary ::= IDENTIFIER | TERMINAL | '(' expression ')' | '[' expression ']' | '{' expression '}' | char_range
+    // primary ::= IDENTIFIER [params] | TERMINAL | '(' expression ')' | '[' expression ']' | '{' expression '}' | char_range | context_action
     
+    // Параметризованные нетерминалы и контекстные действия
     if (check(TokenType::IDENTIFIER)) {
-        BNFToken token = advance();
-        return std::make_unique<NonTerminal>(token.value);
+        return parseParameterizedNonTerminal();
+    }
+    
+    // Контекстные действия: {store(name, value)}
+    if (check(TokenType::LEFT_BRACE)) {
+        // Проверяем, это контекстное действие или повторение
+        size_t saved = current_;
+        advance(); // пропускаем {
+        
+        if (check(TokenType::IDENTIFIER)) {
+            // Проверяем, следует ли за идентификатором открывающая скобка
+            size_t saved2 = current_;
+            advance(); // пропускаем идентификатор
+            
+            if (check(TokenType::LEFT_PAREN)) {
+                // Это контекстное действие
+                current_ = saved; // возвращаемся к началу
+                return parseContextAction();
+            }
+            
+            current_ = saved2; // возвращаемся к идентификатору
+        }
+        
+        current_ = saved; // возвращаемся к {
+        
+        // Это обычное повторение {expression}
+        match(TokenType::LEFT_BRACE);
+        auto expr = parseExpression();
+        if (!expr) return nullptr;
+        
+        if (!match(TokenType::RIGHT_BRACE)) {
+            error("Expected '}' after repetition expression");
+            return nullptr;
+        }
+        
+        return std::make_unique<ZeroOrMore>(std::move(expr));
     }
     
     // Обработка терминалов перенесена ниже для поддержки диапазонов
@@ -192,18 +241,6 @@ std::unique_ptr<ASTNode> BNFParser::parsePrimary() {
         return std::make_unique<Optional>(std::move(expr));
     }
     
-    if (match(TokenType::LEFT_BRACE)) {
-        auto expr = parseExpression();
-        if (!expr) return nullptr;
-        
-        if (!match(TokenType::RIGHT_BRACE)) {
-            error("Expected '}' after repetition expression");
-            return nullptr;
-        }
-        
-        return std::make_unique<ZeroOrMore>(std::move(expr));
-    }
-    
     // Диапазон символов: 'a'..'z'
     if (check(TokenType::TERMINAL)) {
         size_t saved = current_;
@@ -212,8 +249,19 @@ std::unique_ptr<ASTNode> BNFParser::parsePrimary() {
         if (match(TokenType::DOT_DOT) && check(TokenType::TERMINAL)) {
             BNFToken end = advance();
             
-            if (start.value.length() == 1 && end.value.length() == 1) {
-                return std::make_unique<CharRange>(start.value[0], end.value[0]);
+            // Используем UTF-8 утилиты для определения количества символов
+            if (utf8::length(start.value) == 1 && utf8::length(end.value) == 1) {
+                // Извлекаем Unicode codepoints
+                uint32_t start_cp = utf8::utf8ToCodepoint(start.value);
+                uint32_t end_cp = utf8::utf8ToCodepoint(end.value);
+                
+                if (start_cp == 0 || end_cp == 0) {
+                    error("Invalid UTF-8 character in range");
+                    return nullptr;
+                }
+                
+                // CharRange теперь работает с Unicode codepoints
+                return std::make_unique<CharRange>(start_cp, end_cp);
             } else {
                 error("Character ranges must be single characters");
                 return nullptr;
@@ -407,6 +455,232 @@ bool BNFParser::isProductive(const ASTNode* node,
     }
     
     return false;
+}
+
+// Extended BNF методы для контекстно-зависимых грамматик
+
+std::vector<RuleParameter> BNFParser::parseRuleParameters() {
+    // [param1, param2:type, param3:enum{val1,val2}]
+    std::vector<RuleParameter> parameters;
+    
+    if (!match(TokenType::LEFT_BRACKET)) {
+        error("Expected '[' to start parameter list");
+        return parameters;
+    }
+    
+    // Парсим первый параметр
+    if (!check(TokenType::RIGHT_BRACKET)) {
+        parameters.push_back(parseRuleParameter());
+        
+        // Парсим остальные параметры
+        while (match(TokenType::COMMA)) {
+            parameters.push_back(parseRuleParameter());
+        }
+    }
+    
+    if (!match(TokenType::RIGHT_BRACKET)) {
+        error("Expected ']' to end parameter list");
+    }
+    
+    return parameters;
+}
+
+RuleParameter BNFParser::parseRuleParameter() {
+    // param:type или param:enum{val1,val2} или просто param
+    if (!check(TokenType::IDENTIFIER)) {
+        error("Expected parameter name");
+        return RuleParameter("", ParameterType::STRING);
+    }
+    
+    std::string paramName = advance().value;
+    
+    // Если есть двоеточие, парсим тип
+    if (match(TokenType::COLON)) {
+        ParameterType type = parseParameterType();
+        
+        if (type == ParameterType::ENUM) {
+            // Для enum нужно распарсить значения
+            std::vector<std::string> enumValues = parseEnumValues();
+            return RuleParameter(paramName, enumValues);
+        } else {
+            return RuleParameter(paramName, type);
+        }
+    }
+    
+    // По умолчанию - строковый тип
+    return RuleParameter(paramName, ParameterType::STRING);
+}
+
+ParameterType BNFParser::parseParameterType() {
+    // int | string | bool | enum{...}
+    if (!check(TokenType::IDENTIFIER)) {
+        error("Expected parameter type");
+        return ParameterType::STRING;
+    }
+    
+    std::string typeName = advance().value;
+    
+    if (typeName == "int" || typeName == "integer") {
+        return ParameterType::INTEGER;
+    } else if (typeName == "string" || typeName == "str") {
+        return ParameterType::STRING;
+    } else if (typeName == "bool" || typeName == "boolean") {
+        return ParameterType::BOOLEAN;
+    } else if (typeName == "enum") {
+        return ParameterType::ENUM;
+    } else {
+        error("Unknown parameter type: " + typeName);
+        return ParameterType::STRING;
+    }
+}
+
+std::vector<std::string> BNFParser::parseEnumValues() {
+    // {val1, val2, val3}
+    std::vector<std::string> values;
+    
+    if (!match(TokenType::LEFT_BRACE)) {
+        error("Expected '{' to start enum values");
+        return values;
+    }
+    
+    // Парсим первое значение
+    if (!check(TokenType::RIGHT_BRACE)) {
+        if (!check(TokenType::IDENTIFIER)) {
+            error("Expected enum value");
+            return values;
+        }
+        values.push_back(advance().value);
+        
+        // Парсим остальные значения
+        while (match(TokenType::COMMA)) {
+            if (!check(TokenType::IDENTIFIER)) {
+                error("Expected enum value after ','");
+                break;
+            }
+            values.push_back(advance().value);
+        }
+    }
+    
+    if (!match(TokenType::RIGHT_BRACE)) {
+        error("Expected '}' to end enum values");
+    }
+    
+    return values;
+}
+
+std::vector<std::string> BNFParser::parseParameterValues() {
+    // [val1, val2] для вызовов нетерминалов
+    std::vector<std::string> values;
+    
+    if (!match(TokenType::LEFT_BRACKET)) {
+        error("Expected '[' to start parameter values");
+        return values;
+    }
+    
+    // Парсим первое значение
+    if (!check(TokenType::RIGHT_BRACKET)) {
+        if (!check(TokenType::IDENTIFIER)) {
+            error("Expected parameter value");
+            return values;
+        }
+        values.push_back(advance().value);
+        
+        // Парсим остальные значения
+        while (match(TokenType::COMMA)) {
+            if (!check(TokenType::IDENTIFIER)) {
+                error("Expected parameter value after ','");
+                break;
+            }
+            values.push_back(advance().value);
+        }
+    }
+    
+    if (!match(TokenType::RIGHT_BRACKET)) {
+        error("Expected ']' to end parameter values");
+    }
+    
+    return values;
+}
+
+std::unique_ptr<ContextAction> BNFParser::parseContextAction() {
+    // {store(name, value)} | {lookup(name)} | {check(condition)}
+    if (!match(TokenType::LEFT_BRACE)) {
+        error("Expected '{' to start context action");
+        return nullptr;
+    }
+    
+    if (!check(TokenType::IDENTIFIER)) {
+        error("Expected action name");
+        return nullptr;
+    }
+    
+    std::string actionName = advance().value;
+    std::vector<std::string> arguments;
+    
+    if (!match(TokenType::LEFT_PAREN)) {
+        error("Expected '(' after action name");
+        return nullptr;
+    }
+    
+    // Парсим аргументы
+    if (!check(TokenType::RIGHT_PAREN)) {
+        if (!check(TokenType::IDENTIFIER)) {
+            error("Expected argument");
+            return nullptr;
+        }
+        arguments.push_back(advance().value);
+        
+        while (match(TokenType::COMMA)) {
+            if (!check(TokenType::IDENTIFIER)) {
+                error("Expected argument after ','");
+                break;
+            }
+            arguments.push_back(advance().value);
+        }
+    }
+    
+    if (!match(TokenType::RIGHT_PAREN)) {
+        error("Expected ')' after arguments");
+        return nullptr;
+    }
+    
+    if (!match(TokenType::RIGHT_BRACE)) {
+        error("Expected '}' to end context action");
+        return nullptr;
+    }
+    
+    // Определяем тип действия
+    ContextAction::ActionType actionType;
+    if (actionName == "store") {
+        actionType = ContextAction::ActionType::STORE;
+    } else if (actionName == "lookup") {
+        actionType = ContextAction::ActionType::LOOKUP;
+    } else if (actionName == "check") {
+        actionType = ContextAction::ActionType::CHECK;
+    } else {
+        error("Unknown action type: " + actionName);
+        return nullptr;
+    }
+    
+    return std::make_unique<ContextAction>(actionType, arguments);
+}
+
+std::unique_ptr<NonTerminal> BNFParser::parseParameterizedNonTerminal() {
+    // <rule>[param1, param2] или просто <rule>
+    if (!check(TokenType::IDENTIFIER)) {
+        error("Expected non-terminal name");
+        return nullptr;
+    }
+    
+    std::string name = advance().value;
+    
+    // Проверяем, есть ли параметры
+    if (check(TokenType::LEFT_BRACKET)) {
+        std::vector<std::string> paramValues = parseParameterValues();
+        return std::make_unique<NonTerminal>(name, paramValues);
+    } else {
+        return std::make_unique<NonTerminal>(name);
+    }
 }
 
 } // namespace bnf_parser_generator

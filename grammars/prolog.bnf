@@ -3,15 +3,23 @@
 
 # Whitespace and Comments
 WHITESPACE ::= (' ' | '\t' | '\n' | '\r')+
-LINE_COMMENT ::= '%' [^\n]* '\n'
-BLOCK_COMMENT ::= '/*' (.*?) '*/'
+LINE_COMMENT ::= '%' comment_char* '\n'
+comment_char ::= '\u0009' | '\u0020'..'\U0010FFFF'
 
 # Basic tokens
 ATOM ::= lowercase (alphanumeric | '_')*
 VARIABLE ::= (uppercase | '_') (alphanumeric | '_')*
 NUMBER ::= '-'? digit+ ('.' digit+)?
-STRING ::= '"' ([^"\\] | '\\' .)* '"'
-QUOTED_ATOM ::= "'" ([^'\\] | '\\' .)* "'"
+STRING ::= '"' string_chars '"'
+string_chars ::= string_char*
+string_char ::= string_plain | string_escape
+string_plain ::= '\u0020'..'\u0021' | '\u0023'..'\u005B' | '\u005D'..'\U0010FFFF'
+string_escape ::= '\\' ('\\' | '"' | 'n' | 't' | 'r')
+QUOTED_ATOM ::= "'" quoted_chars "'"
+quoted_chars ::= quoted_char*
+quoted_char ::= quoted_plain | quoted_escape
+quoted_plain ::= '\u0020'..'\u0026' | '\u0028'..'\u005B' | '\u005D'..'\U0010FFFF'
+quoted_escape ::= '\\' ('\\' | "'" | 'n' | 't' | 'r')
 
 # Punctuation
 LEFT_PAREN ::= '('

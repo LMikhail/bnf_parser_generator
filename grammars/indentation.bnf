@@ -1,0 +1,49 @@
+# Extended BNF Grammar: Python-style Indentation
+# Demonstrates context-sensitive grammar with integer parameters
+
+# Program with indentation level tracking
+program ::= block[0]
+
+# Block at specific indentation level
+block[indent:int] ::= line[indent] (newline line[indent])*
+
+# Line with required indentation
+line[indent] ::= spaces[indent] statement
+
+# Indentation spaces (recursive definition)
+spaces[0] ::= ""
+spaces[n:int] ::= "    " spaces[n-1]  # 4 spaces per level
+
+# Statements
+statement ::= simple_stmt | compound_stmt
+
+simple_stmt ::= "print" "(" string ")" | "pass" | "break" | "continue"
+
+compound_stmt ::= if_stmt | while_stmt | for_stmt
+
+if_stmt ::= "if" condition ":" newline block[indent+1] 
+          | "if" condition ":" newline block[indent+1] "else" ":" newline block[indent+1]
+
+while_stmt ::= "while" condition ":" newline block[indent+1]
+
+for_stmt ::= "for" identifier "in" expression ":" newline block[indent+1]
+
+# Basic elements
+condition ::= expression comparison_op expression
+comparison_op ::= "==" | "!=" | "<" | ">" | "<=" | ">="
+expression ::= identifier | number | string
+identifier ::= letter (letter | digit)*
+number ::= digit+
+string ::= '"' char* '"'
+letter ::= 'a'..'z' | 'A'..'Z'
+digit ::= '0'..'9'
+char ::= letter | digit | ' '
+newline ::= '\n'
+
+# Examples of valid Python-like code:
+# if x > 0:
+#     print("positive")
+#     if x > 10:
+#         print("big")
+# else:
+#     print("not positive")

@@ -43,7 +43,7 @@ int main() {
             auto result = generator->generate(*grammar, options);
             assert(result.success);
             assert(!result.parser_code.empty());
-            assert(result.parser_filename == "SimpleParser.cpp");
+            assert(result.parser_filename == "simple_parser.cpp");
             std::cout << "✓ Simple grammar code generation" << std::endl;
         }
         

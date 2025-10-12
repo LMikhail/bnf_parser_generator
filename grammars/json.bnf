@@ -26,7 +26,7 @@ hex_digit ::= digit | 'a'..'f' | 'A'..'F'
 
 # JSON string characters
 json_char ::= unescaped_char | escape_sequence
-unescaped_char ::= '\u0020'..'\u0021' | '\u0023'..'\u005B' | '\u005D'..'\u10FFFF'
+unescaped_char ::= '\u0020'..'\u0021' | '\u0023'..'\u005B' | '\u005D'..'\U0010FFFF'
 escape_sequence ::= '\\' ('"' | '\\' | '/' | 'b' | 'f' | 'n' | 'r' | 't' | unicode_escape)
 unicode_escape ::= 'u' hex_digit hex_digit hex_digit hex_digit
 
