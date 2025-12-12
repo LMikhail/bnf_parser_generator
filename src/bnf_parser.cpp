@@ -78,6 +78,11 @@ std::unique_ptr<ProductionRule> BNFParser::parseRule() {
         return nullptr;
     }
     
+    if (!match(TokenType::SEMICOLON)) {
+        error("Expected ';' after rule definition");
+        return nullptr;
+    }
+    
     // Пропускаем опциональные переводы строк после правила
     while (check(TokenType::NEWLINE)) {
         advance();
@@ -99,19 +104,19 @@ std::unique_ptr<ASTNode> BNFParser::parseAlternative() {
     // alternative ::= sequence ('|' sequence)*
     
     auto left = parseSequence();
-    if (!left) return nullptr;
+    if (!left) return nullptr; // Should not happen if parseSequence is correct
     
     if (!check(TokenType::ALTERNATIVE)) {
-        return left; // Только одна альтернатива
+        return left; // Only one alternative
     }
     
-    // Множественные альтернативы
+    // Multiple alternatives
     auto alternative = std::make_unique<Alternative>();
     alternative->addChoice(std::move(left));
     
     while (match(TokenType::ALTERNATIVE)) {
         auto right = parseSequence();
-        if (!right) return nullptr;
+        if (!right) return nullptr; // Should not happen
         alternative->addChoice(std::move(right));
     }
     
@@ -119,27 +124,29 @@ std::unique_ptr<ASTNode> BNFParser::parseAlternative() {
 }
 
 std::unique_ptr<ASTNode> BNFParser::parseSequence() {
-    // sequence ::= factor+
+    // sequence ::= factor*
     
     std::vector<std::unique_ptr<ASTNode>> elements;
     
-    auto first = parseFactor();
-    if (!first) return nullptr;
-    
-    elements.push_back(std::move(first));
-    
-    // Продолжаем парсить элементы последовательности
     while (!isAtEnd() && 
            !check(TokenType::ALTERNATIVE) && 
            !check(TokenType::RIGHT_PAREN) && 
            !check(TokenType::RIGHT_BRACKET) && 
            !check(TokenType::RIGHT_BRACE) &&
+           !check(TokenType::SEMICOLON) &&
            !check(TokenType::NEWLINE) &&
            !check(TokenType::EOF_TOKEN)) {
         
         auto element = parseFactor();
-        if (!element) break;
+        if (!element) {
+            if (!error_.empty()) return nullptr; // Propagate error
+            break; // End of sequence
+        }
         elements.push_back(std::move(element));
+    }
+    
+    if (elements.empty()) {
+        return std::make_unique<Sequence>();
     }
     
     if (elements.size() == 1) {
@@ -158,7 +165,9 @@ std::unique_ptr<ASTNode> BNFParser::parseFactor() {
     // factor ::= primary ('+' | '*' | '?')?
     
     auto primary = parsePrimary();
-    if (!primary) return nullptr;
+    if (!primary) {
+        return nullptr;
+    }
     
     // EBNF постфиксные операторы
     if (match(TokenType::PLUS)) {
@@ -173,109 +182,93 @@ std::unique_ptr<ASTNode> BNFParser::parseFactor() {
 }
 
 std::unique_ptr<ASTNode> BNFParser::parsePrimary() {
-    // primary ::= IDENTIFIER [params] | TERMINAL | '(' expression ')' | '[' expression ']' | '{' expression '}' | char_range | context_action
+    // primary ::= IDENTIFIER [params] | TERMINAL | char_range | '(' expression ')' | '[' expression ']' | '{' expression '}'
     
-    // Параметризованные нетерминалы и контекстные действия
+    if (check(TokenType::TERMINAL)) {
+        return parseTerminalOrCharRange();
+    }
+    
     if (check(TokenType::IDENTIFIER)) {
         return parseParameterizedNonTerminal();
     }
     
-    // Контекстные действия: {store(name, value)}
-    if (check(TokenType::LEFT_BRACE)) {
-        // Проверяем, это контекстное действие или повторение
-        size_t saved = current_;
-        advance(); // пропускаем {
-        
-        if (check(TokenType::IDENTIFIER)) {
-            // Проверяем, следует ли за идентификатором открывающая скобка
-            size_t saved2 = current_;
-            advance(); // пропускаем идентификатор
-            
-            if (check(TokenType::LEFT_PAREN)) {
-                // Это контекстное действие
-                current_ = saved; // возвращаемся к началу
-                return parseContextAction();
-            }
-            
-            current_ = saved2; // возвращаемся к идентификатору
-        }
-        
-        current_ = saved; // возвращаемся к {
-        
-        // Это обычное повторение {expression}
-        match(TokenType::LEFT_BRACE);
-        auto expr = parseExpression();
-        if (!expr) return nullptr;
-        
-        if (!match(TokenType::RIGHT_BRACE)) {
-            error("Expected '}' after repetition expression");
-            return nullptr;
-        }
-        
-        return std::make_unique<ZeroOrMore>(std::move(expr));
-    }
-    
-    // Обработка терминалов перенесена ниже для поддержки диапазонов
-    
     if (match(TokenType::LEFT_PAREN)) {
         auto expr = parseExpression();
         if (!expr) return nullptr;
-        
         if (!match(TokenType::RIGHT_PAREN)) {
             error("Expected ')' after grouped expression");
             return nullptr;
         }
-        
         return std::make_unique<Group>(std::move(expr));
     }
     
     if (match(TokenType::LEFT_BRACKET)) {
         auto expr = parseExpression();
         if (!expr) return nullptr;
-        
         if (!match(TokenType::RIGHT_BRACKET)) {
             error("Expected ']' after optional expression");
             return nullptr;
         }
-        
         return std::make_unique<Optional>(std::move(expr));
     }
     
+    if (match(TokenType::LEFT_BRACE)) {
+        // Проверяем, не контекстное ли это действие
+        if (check(TokenType::IDENTIFIER)) {
+            size_t saved = current_;
+            advance();
+            if (check(TokenType::LEFT_PAREN)) {
+                // Это контекстное действие, откатываемся и вызываем соответствующий парсер
+                current_ = saved - 1; // Возвращаемся к '{'
+                return parseContextAction();
+            }
+            // Это не контекстное действие, откатываемся
+            current_ = saved - 1;
+        }
+
+        auto expr = parseExpression();
+        if (!expr) return nullptr;
+        if (!match(TokenType::RIGHT_BRACE)) {
+            error("Expected '}' after repetition expression");
+            return nullptr;
+        }
+        return std::make_unique<ZeroOrMore>(std::move(expr));
+    }
+
+    return nullptr;
+}
+
+std::unique_ptr<ASTNode> BNFParser::parseTerminalOrCharRange() {
     // Диапазон символов: 'a'..'z'
-    if (check(TokenType::TERMINAL)) {
-        size_t saved = current_;
-        BNFToken start = advance();
+    size_t saved = current_;
+    BNFToken start = advance();
+    
+    if (match(TokenType::DOT_DOT) && check(TokenType::TERMINAL)) {
+        BNFToken end = advance();
         
-        if (match(TokenType::DOT_DOT) && check(TokenType::TERMINAL)) {
-            BNFToken end = advance();
+        // Используем UTF-8 утилиты для определения количества символов
+        if (utf8::length(start.value) == 1 && utf8::length(end.value) == 1) {
+            // Извлекаем Unicode codepoints
+            uint32_t start_cp = utf8::utf8ToCodepoint(start.value);
+            uint32_t end_cp = utf8::utf8ToCodepoint(end.value);
             
-            // Используем UTF-8 утилиты для определения количества символов
-            if (utf8::length(start.value) == 1 && utf8::length(end.value) == 1) {
-                // Извлекаем Unicode codepoints
-                uint32_t start_cp = utf8::utf8ToCodepoint(start.value);
-                uint32_t end_cp = utf8::utf8ToCodepoint(end.value);
-                
-                if (start_cp == 0 || end_cp == 0) {
-                    error("Invalid UTF-8 character in range");
-                    return nullptr;
-                }
-                
-                // CharRange теперь работает с Unicode codepoints
-                return std::make_unique<CharRange>(start_cp, end_cp);
-            } else {
-                error("Character ranges must be single characters");
+            if (start_cp == 0 || end_cp == 0) {
+                error("Invalid UTF-8 character in range");
                 return nullptr;
             }
+            
+            // CharRange теперь работает с Unicode codepoints
+            return std::make_unique<CharRange>(start_cp, end_cp);
         } else {
-            // Откат - это был обычный терминал
-            current_ = saved;
-            BNFToken token = advance();
-            return std::make_unique<Terminal>(token.value);
+            error("Character ranges must be single characters");
+            return nullptr;
         }
+    } else {
+        // Откат - это был обычный терминал
+        current_ = saved;
+        BNFToken token = advance();
+        return std::make_unique<Terminal>(token.value);
     }
-    
-    error("Expected identifier, terminal, or grouped expression");
-    return nullptr;
 }
 
 bool BNFParser::match(TokenType type) {

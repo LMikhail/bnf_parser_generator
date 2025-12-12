@@ -96,6 +96,10 @@ std::vector<BNFToken> BNFLexer::tokenize() {
                 tokens.emplace_back(TokenType::COMMA, ",", line_, column_);
                 advance();
                 break;
+            case ';':
+                tokens.emplace_back(TokenType::SEMICOLON, ";", line_, column_);
+                advance();
+                break;
             case ':':
                 tokens.emplace_back(TokenType::COLON, ":", line_, column_);
                 advance();

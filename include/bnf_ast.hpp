@@ -65,7 +65,23 @@ private:
 class ASTNode {
 public:
     virtual ~ASTNode() = default;
-    virtual std::string toString() const = 0;
+    virtual std::string toString(int indent = 0) const = 0;
+
+    // RTTI-хелперы для безопасного приведения типов
+    template<typename T>
+    bool is() const {
+        return dynamic_cast<const T*>(this) != nullptr;
+    }
+
+    template<typename T>
+    const T* as() const {
+        return dynamic_cast<const T*>(this);
+    }
+
+    template<typename T>
+    T* as() {
+        return dynamic_cast<T*>(this);
+    }
 };
 
 // Контекстное действие: {store(name, value)} или {lookup(name)}
@@ -83,7 +99,8 @@ public:
     ContextAction(ActionType type, const std::vector<std::string>& args)
         : actionType(type), arguments(args) {}
     
-    std::string toString() const override {
+    std::string toString(int indent = 0) const override {
+        (void)indent;
         std::string result = "{";
         switch (actionType) {
             case ActionType::STORE:
@@ -107,7 +124,10 @@ public:
     std::string value;
     
     explicit Terminal(const std::string& val) : value(val) {}
-    std::string toString() const override { return "\"" + value + "\""; }
+    std::string toString(int indent = 0) const override {
+        (void)indent;
+        return "\"" + value + "\"";
+    }
 };
 
 // Нетерминальный символ с поддержкой параметров
@@ -121,7 +141,8 @@ public:
     NonTerminal(const std::string& n, const std::vector<std::string>& params)
         : name(n), parameterValues(params) {}
     
-    std::string toString() const override { 
+    std::string toString(int indent = 0) const override { 
+        (void)indent;
         std::string result = "<" + name;
         if (!parameterValues.empty()) {
             result += "[";
@@ -145,7 +166,7 @@ public:
     uint32_t end;    // Unicode codepoint
     
     CharRange(uint32_t s, uint32_t e) : start(s), end(e) {}
-    std::string toString() const override;
+    std::string toString(int indent = 0) const override;
 };
 
 // Альтернативы: A | B | C
@@ -157,11 +178,12 @@ public:
         choices.push_back(std::move(choice));
     }
     
-    std::string toString() const override {
+    std::string toString(int indent = 0) const override {
+        (void)indent;
         std::string result;
         for (std::size_t i = 0; i < choices.size(); ++i) {
             if (i > 0) result += " | ";
-            result += choices[i]->toString();
+            result += choices[i]->toString(indent);
         }
         return result;
     }
@@ -176,11 +198,12 @@ public:
         elements.push_back(std::move(element));
     }
     
-    std::string toString() const override {
+    std::string toString(int indent = 0) const override {
+        (void)indent;
         std::string result;
         for (std::size_t i = 0; i < elements.size(); ++i) {
             if (i > 0) result += " ";
-            result += elements[i]->toString();
+            result += elements[i]->toString(indent);
         }
         return result;
     }
@@ -192,8 +215,9 @@ public:
     std::unique_ptr<ASTNode> content;
     
     explicit Group(std::unique_ptr<ASTNode> c) : content(std::move(c)) {}
-    std::string toString() const override { 
-        return "(" + content->toString() + ")"; 
+    std::string toString(int indent = 0) const override { 
+        (void)indent;
+        return "(" + content->toString(indent) + ")"; 
     }
 };
 
@@ -203,8 +227,9 @@ public:
     std::unique_ptr<ASTNode> content;
     
     explicit Optional(std::unique_ptr<ASTNode> c) : content(std::move(c)) {}
-    std::string toString() const override { 
-        return "[" + content->toString() + "]"; 
+    std::string toString(int indent = 0) const override { 
+        (void)indent;
+        return "[" + content->toString(indent) + "]"; 
     }
 };
 
@@ -214,8 +239,9 @@ public:
     std::unique_ptr<ASTNode> content;
     
     explicit ZeroOrMore(std::unique_ptr<ASTNode> c) : content(std::move(c)) {}
-    std::string toString() const override { 
-        return "{" + content->toString() + "}"; 
+    std::string toString(int indent = 0) const override { 
+        (void)indent;
+        return "{" + content->toString(indent) + "}"; 
     }
 };
 
@@ -225,8 +251,9 @@ public:
     std::unique_ptr<ASTNode> content;
     
     explicit OneOrMore(std::unique_ptr<ASTNode> c) : content(std::move(c)) {}
-    std::string toString() const override { 
-        return content->toString() + "+"; 
+    std::string toString(int indent = 0) const override { 
+        (void)indent;
+        return content->toString(indent) + "+"; 
     }
 };
 

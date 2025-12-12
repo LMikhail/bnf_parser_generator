@@ -236,10 +236,11 @@ std::string CppCodeGenerator::generateRuleFunction(const ProductionRule& rule) {
     ss << "\n";
     
     // Генерация кода для правой части правила
-    std::string node_code = visitNode(rule.rightSide.get());
+    std::string on_failure_action = 
+        "pos_ = saved_pos; line_ = saved_line; column_ = saved_column; --recursion_depth_; return nullptr;";
     
     ss << "        auto node = std::make_unique<" << makeIdentifier(rule.leftSide) << "Node>();\n";
-    ss << node_code;
+    ss << visitNode(rule.rightSide.get(), on_failure_action);
     ss << "\n";
     ss << "        --recursion_depth_;\n";
     ss << "        return node;\n";
@@ -249,46 +250,42 @@ std::string CppCodeGenerator::generateRuleFunction(const ProductionRule& rule) {
 }
 
 // Обобщённый метод визитации узлов
-std::string CppCodeGenerator::visitNode(const ASTNode* node) {
+std::string CppCodeGenerator::visitNode(const ASTNode* node, const std::string& on_failure_action) {
     if (const auto* term = dynamic_cast<const Terminal*>(node)) {
-        return visitTerminal(term);
+        return visitTerminal(term, on_failure_action);
     } else if (const auto* nonterm = dynamic_cast<const NonTerminal*>(node)) {
-        return visitNonTerminal(nonterm);
+        return visitNonTerminal(nonterm, on_failure_action);
     } else if (const auto* range = dynamic_cast<const CharRange*>(node)) {
-        return visitCharRange(range);
+        return visitCharRange(range, on_failure_action);
     } else if (const auto* alt = dynamic_cast<const Alternative*>(node)) {
-        return visitAlternative(alt);
+        return visitAlternative(alt, on_failure_action);
     } else if (const auto* seq = dynamic_cast<const Sequence*>(node)) {
-        return visitSequence(seq);
+        return visitSequence(seq, on_failure_action);
     } else if (const auto* group = dynamic_cast<const Group*>(node)) {
-        return visitGroup(group);
+        return visitGroup(group, on_failure_action);
     } else if (const auto* opt = dynamic_cast<const Optional*>(node)) {
-        return visitOptional(opt);
+        return visitOptional(opt, on_failure_action);
     } else if (const auto* zero = dynamic_cast<const ZeroOrMore*>(node)) {
-        return visitZeroOrMore(zero);
+        return visitZeroOrMore(zero, on_failure_action);
     } else if (const auto* one = dynamic_cast<const OneOrMore*>(node)) {
-        return visitOneOrMore(one);
+        return visitOneOrMore(one, on_failure_action);
     } else if (const auto* action = dynamic_cast<const ContextAction*>(node)) {
-        return visitContextAction(action);
+        return visitContextAction(action, on_failure_action);
     }
     
     return "        // Unknown node type\n";
 }
 
-std::string CppCodeGenerator::visitTerminal(const Terminal* node) {
+std::string CppCodeGenerator::visitTerminal(const Terminal* node, const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // Match terminal: \"" << escapeString(node->value) << "\"\n";
     ss << "        if (!matchString(\"" << escapeString(node->value) << "\")) {\n";
-    ss << "            pos_ = saved_pos;\n";
-    ss << "            line_ = saved_line;\n";
-    ss << "            column_ = saved_column;\n";
-    ss << "            --recursion_depth_;\n";
-    ss << "            return nullptr;\n";
+    ss << "            " << on_failure_action << "\n";
     ss << "        }\n";
     return ss.str();
 }
 
-std::string CppCodeGenerator::visitNonTerminal(const NonTerminal* node) {
+std::string CppCodeGenerator::visitNonTerminal(const NonTerminal* node, const std::string& on_failure_action) {
     std::ostringstream ss;
     std::string child_var = "child_" + std::to_string(variable_counter_++);
     ss << "        // Parse non-terminal: " << node->name;
@@ -312,26 +309,18 @@ std::string CppCodeGenerator::visitNonTerminal(const NonTerminal* node) {
     
     ss << ");\n";
     ss << "        if (!" << child_var << ") {\n";
-    ss << "            pos_ = saved_pos;\n";
-    ss << "            line_ = saved_line;\n";
-    ss << "            column_ = saved_column;\n";
-    ss << "            --recursion_depth_;\n";
-    ss << "            return nullptr;\n";
+    ss << "            " << on_failure_action << "\n";
     ss << "        }\n";
     ss << "        node->children.push_back(std::move(" << child_var << "));\n";
     return ss.str();
 }
 
-std::string CppCodeGenerator::visitCharRange(const CharRange* node) {
+std::string CppCodeGenerator::visitCharRange(const CharRange* node, const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // Match character range: U+" << std::hex << std::uppercase 
        << node->start << " .. U+" << node->end << std::dec << std::nouppercase << "\n";
     ss << "        if (pos_ >= input_.size()) {\n";
-    ss << "            pos_ = saved_pos;\n";
-    ss << "            line_ = saved_line;\n";
-    ss << "            column_ = saved_column;\n";
-    ss << "            --recursion_depth_;\n";
-    ss << "            return nullptr;\n";
+    ss << "            " << on_failure_action << "\n";
     ss << "        }\n";
     ss << "        // Extract current codepoint\n";
     ss << "        size_t char_len = 1;\n";
@@ -343,11 +332,7 @@ std::string CppCodeGenerator::visitCharRange(const CharRange* node) {
     ss << "            else if ((firstByte & 0xF0) == 0xE0) char_len = 3;\n";
     ss << "            else if ((firstByte & 0xF8) == 0xF0) char_len = 4;\n";
     ss << "            if (pos_ + char_len > input_.size()) {\n";
-    ss << "                pos_ = saved_pos;\n";
-    ss << "                line_ = saved_line;\n";
-    ss << "                column_ = saved_column;\n";
-    ss << "                --recursion_depth_;\n";
-    ss << "                return nullptr;\n";
+    ss << "                " << on_failure_action << "\n";
     ss << "            }\n";
     ss << "            // Decode UTF-8 codepoint\n";
     ss << "            if (char_len == 2) {\n";
@@ -359,11 +344,7 @@ std::string CppCodeGenerator::visitCharRange(const CharRange* node) {
     ss << "            }\n";
     ss << "        }\n";
     ss << "        if (cp < " << node->start << "U || cp > " << node->end << "U) {\n";
-    ss << "            pos_ = saved_pos;\n";
-    ss << "            line_ = saved_line;\n";
-    ss << "            column_ = saved_column;\n";
-    ss << "            --recursion_depth_;\n";
-    ss << "            return nullptr;\n";
+    ss << "            " << on_failure_action << "\n";
     ss << "        }\n";
     ss << "        // Advance by character length\n";
     ss << "        for (size_t i = 0; i < char_len; ++i) {\n";
@@ -373,103 +354,84 @@ std::string CppCodeGenerator::visitCharRange(const CharRange* node) {
 }
 
 
-std::string CppCodeGenerator::visitAlternative(const Alternative* node) {
+std::string CppCodeGenerator::visitAlternative(const Alternative* node, const std::string& on_failure_action) {
     std::ostringstream ss;
+    std::string label_base = std::to_string(variable_counter_++);
+    
     ss << "        // Try alternatives\n";
     ss << "        {\n";
-    ss << "            bool alt_matched = false;\n";
+    ss << "            bool alt_matched_" << label_base << " = false;\n";
     
     for (size_t i = 0; i < node->choices.size(); ++i) {
-        ss << "            // Alternative " << (i + 1) << "\n";
-        ss << "            if (!alt_matched) {\n";
+        ss << "            if (!alt_matched_" << label_base << ") {\n";
         ss << "                size_t alt_pos = pos_;\n";
         ss << "                size_t alt_line = line_;\n";
         ss << "                size_t alt_column = column_;\n";
-        ss << "                size_t alt_children_size = node->children.size();\n";
         
-        // Simple universal approach: use visitNode for any choice type
-        std::string choice_code = visitNode(node->choices[i].get());
-        ss << choice_code;
+        ss << "                do { // Alternative " << (i + 1) << "\n";
         
-        // Check if parsing succeeded by comparing children count
-        ss << "                if (node->children.size() > alt_children_size) {\n";
-        ss << "                    alt_matched = true;\n";
-        ss << "                } else {\n";
-        ss << "                    pos_ = alt_pos;\n";
-        ss << "                    line_ = alt_line;\n";
-        ss << "                    column_ = alt_column;\n";
-        ss << "                }\n";
+        std::string alt_label = "alt_failed_" + label_base + "_" + std::to_string(i);
+        std::string on_alt_failure =
+            "pos_ = alt_pos; line_ = alt_line; column_ = alt_column; goto " + alt_label + ";";
+        
+        ss << "                " << visitNode(node->choices[i].get(), on_alt_failure) << "\n";
+        ss << "                alt_matched_" << label_base << " = true;\n";
+        ss << "                } while(false);\n";
         ss << "            }\n";
+        ss << "            " << "alt_failed_" << label_base << "_" << i << ":; // Label for this alternative\n";
     }
     
-    ss << "            if (!alt_matched) {\n";
-    ss << "                pos_ = saved_pos;\n";
-    ss << "                line_ = saved_line;\n";
-    ss << "                column_ = saved_column;\n";
-    ss << "                --recursion_depth_;\n";
-    ss << "                return nullptr;\n";
+    ss << "            if (!alt_matched_" << label_base << ") {\n";
+    ss << "                " << on_failure_action << "\n";
     ss << "            }\n";
     ss << "        }\n";
     
     return ss.str();
 }
 
-std::string CppCodeGenerator::visitSequence(const Sequence* node) {
+std::string CppCodeGenerator::visitSequence(const Sequence* node, const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // Parse sequence\n";
+    ss << "        do { // Sequence block\n";
+    bool first = true;
     for (const auto& element : node->elements) {
-        ss << visitNode(element.get());
+        if (first) {
+            ss << visitNode(element.get(), on_failure_action);
+            first = false;
+        } else {
+            // Для последующих элементов выход из блока - это провал всей последовательности
+            ss << visitNode(element.get(), "break;");
+        }
     }
+    ss << "        } while(false); // End of sequence block\n";
     return ss.str();
 }
 
-std::string CppCodeGenerator::visitGroup(const Group* node) {
-    return visitNode(node->content.get());
+std::string CppCodeGenerator::visitGroup(const Group* node, const std::string& on_failure_action) {
+    return visitNode(node->content.get(), on_failure_action);
 }
 
-std::string CppCodeGenerator::visitOptional(const Optional* node) {
-    // TODO: Investigate complex JSON parsing failures - simple {} works but content fails
-    // Current fix handles basic optional parsing but may need refinement for nested structures
+std::string CppCodeGenerator::visitOptional(const Optional* node, [[maybe_unused]] const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // Optional\n";
-    ss << "        {\n";
+    ss << "        do {\n";
     ss << "            size_t opt_pos = pos_;\n";
     ss << "            size_t opt_line = line_;\n";
     ss << "            size_t opt_column = column_;\n";
     ss << "            size_t opt_children_size = node->children.size();\n";
-    ss << "            bool opt_success = true;\n";
     
-    // Generate content parsing with proper error handling for optional
-    std::string content_code = visitNode(node->content.get());
-    
-    // Replace any "return nullptr;" with proper optional failure handling
-    size_t pos = 0;
-    while ((pos = content_code.find("return nullptr;", pos)) != std::string::npos) {
-        content_code.replace(pos, 15, "opt_success = false; break;");
-        pos += 27; // length of "opt_success = false; break;"
-    }
-    
-    // Wrap content in a do-while(false) loop to enable break statements
-    ss << "            do {\n";
-    ss << content_code;
-    ss << "            } while (false);\n";
-    
-    ss << "            if (!opt_success) {\n";
-    ss << "                // Optional content failed - restore state and continue\n";
-    ss << "                pos_ = opt_pos;\n";
-    ss << "                line_ = opt_line;\n";
-    ss << "                column_ = opt_column;\n";
-    ss << "                // Remove any children that were added during failed optional parsing\n";
-    ss << "                while (node->children.size() > opt_children_size) {\n";
-    ss << "                    node->children.pop_back();\n";
-    ss << "                }\n";
-    ss << "            }\n";
-    ss << "        }\n";
+    std::string on_opt_failure = 
+        "pos_ = opt_pos; line_ = opt_line; column_ = opt_column; "
+        "while (node->children.size() > opt_children_size) { node->children.pop_back(); } "
+        "break;"; // break from do-while
+
+    ss << "            " << visitNode(node->content.get(), on_opt_failure) << "\n";
+    ss << "        } while(false);\n";
     
     return ss.str();
 }
 
-std::string CppCodeGenerator::visitZeroOrMore(const ZeroOrMore* node) {
+std::string CppCodeGenerator::visitZeroOrMore(const ZeroOrMore* node, [[maybe_unused]] const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // Zero or more repetitions\n";
     ss << "        while (true) {\n";
@@ -478,55 +440,40 @@ std::string CppCodeGenerator::visitZeroOrMore(const ZeroOrMore* node) {
     ss << "            size_t rep_column = column_;\n";
     ss << "            size_t rep_children_size = node->children.size();\n";
     
-    // Simple universal approach: use visitNode for any content type
-    std::string content_code = visitNode(node->content.get());
-    ss << content_code;
+    std::string on_rep_failure = 
+        "pos_ = rep_pos; line_ = rep_line; column_ = rep_column; "
+        "while (node->children.size() > rep_children_size) { node->children.pop_back(); } "
+        "break;";
+        
+    ss << visitNode(node->content.get(), on_rep_failure);
     
-    // Check if parsing succeeded by comparing children count
-    ss << "            if (node->children.size() == rep_children_size) {\n";
-    ss << "                // No new children added, content parsing failed\n";
-    ss << "                pos_ = rep_pos;\n";
-    ss << "                line_ = rep_line;\n";
-    ss << "                column_ = rep_column;\n";
-    ss << "                break;\n";
-    ss << "            }\n";
     ss << "        }\n";
     
     return ss.str();
 }
 
-std::string CppCodeGenerator::visitOneOrMore(const OneOrMore* node) {
+std::string CppCodeGenerator::visitOneOrMore(const OneOrMore* node, const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // One or more repetitions\n";
     ss << "        {\n";
-    ss << "            bool matched_once = false;\n";
+    ss << "            int match_count = 0;\n";
     ss << "            while (true) {\n";
     ss << "                size_t rep_pos = pos_;\n";
     ss << "                size_t rep_line = line_;\n";
     ss << "                size_t rep_column = column_;\n";
     ss << "                size_t rep_children_size = node->children.size();\n";
     
-    // Simple universal approach: use visitNode for any content type
-    std::string content_code = visitNode(node->content.get());
-    ss << content_code;
-    
-    // Check if parsing succeeded by comparing children count
-    ss << "                if (node->children.size() > rep_children_size) {\n";
-    ss << "                    matched_once = true;\n";
-    ss << "                } else {\n";
-    ss << "                    // No new children added, content parsing failed\n";
-    ss << "                    pos_ = rep_pos;\n";
-    ss << "                    line_ = rep_line;\n";
-    ss << "                    column_ = rep_column;\n";
-    ss << "                    break;\n";
-    ss << "                }\n";
+    std::string on_rep_failure = 
+        "pos_ = rep_pos; line_ = rep_line; column_ = rep_column; "
+        "while (node->children.size() > rep_children_size) { node->children.pop_back(); } "
+        "break;";
+        
+    ss << visitNode(node->content.get(), on_rep_failure);
+
+    ss << "                match_count++;\n";
     ss << "            }\n";
-    ss << "            if (!matched_once) {\n";
-    ss << "                pos_ = saved_pos;\n";
-    ss << "                line_ = saved_line;\n";
-    ss << "                column_ = saved_column;\n";
-    ss << "                --recursion_depth_;\n";
-    ss << "                return nullptr;\n";
+    ss << "            if (match_count == 0) {\n";
+    ss << "                " << on_failure_action << "\n";
     ss << "            }\n";
     ss << "        }\n";
     
@@ -538,6 +485,8 @@ std::string CppCodeGenerator::generateHelperMethods() {
     
     ss << "    // Helper methods\n";
     ss << "    void skipWhitespace() {\n";
+    ss << "        // This is a basic whitespace skipper. A real implementation would\n";
+    ss << "        // use the WHITESPACE rule from the grammar if it exists.\n";
     ss << "        while (pos_ < input_.size() && std::isspace(input_[pos_])) {\n";
     ss << "            if (input_[pos_] == '\\n') {\n";
     ss << "                ++line_;\n";
@@ -702,7 +651,7 @@ std::string CppCodeGenerator::generateMainCpp(const Grammar& /* grammar */) {
 
 // Extended BNF методы
 
-std::string CppCodeGenerator::visitContextAction(const ContextAction* node) {
+std::string CppCodeGenerator::visitContextAction(const ContextAction* node, const std::string& on_failure_action) {
     std::ostringstream ss;
     ss << "        // Context action: " << node->toString() << "\n";
     
@@ -717,22 +666,14 @@ std::string CppCodeGenerator::visitContextAction(const ContextAction* node) {
             if (node->arguments.size() >= 1) {
                 ss << "        if (context_storage_.find(\"" << node->arguments[0] 
                    << "\") == context_storage_.end()) {\n";
-                ss << "            pos_ = saved_pos;\n";
-                ss << "            line_ = saved_line;\n";
-                ss << "            column_ = saved_column;\n";
-                ss << "            --recursion_depth_;\n";
-                ss << "            return nullptr; // Context lookup failed\n";
+                ss << "            " << on_failure_action << "; // Context lookup failed\n";
                 ss << "        }\n";
             }
             break;
         case ContextAction::ActionType::CHECK:
             if (node->arguments.size() >= 1) {
                 ss << "        if (!(" << node->arguments[0] << ")) {\n";
-                ss << "            pos_ = saved_pos;\n";
-                ss << "            line_ = saved_line;\n";
-                ss << "            column_ = saved_column;\n";
-                ss << "            --recursion_depth_;\n";
-                ss << "            return nullptr; // Context check failed\n";
+                ss << "            " << on_failure_action << "; // Context check failed\n";
                 ss << "        }\n";
             }
             break;
@@ -764,7 +705,9 @@ std::string CppCodeGenerator::generateParameterizedFunction(const ProductionRule
     ss << "        auto node = std::make_shared<ASTNode>(\"" << rule.leftSide << "\");\n\n";
     
     // Генерируем тело функции
-    ss << visitNode(rule.rightSide.get());
+    std::string on_failure_action = 
+        "pos_ = saved_pos; line_ = saved_line; column_ = saved_column; --recursion_depth_; return nullptr;";
+    ss << visitNode(rule.rightSide.get(), on_failure_action);
     
     ss << "\n        --recursion_depth_;\n";
     ss << "        return node;\n";
@@ -846,7 +789,7 @@ std::string CppCodeGenerator::generateContextStorage() {
 }
 
 std::string CppCodeGenerator::generateContextActions(const ContextAction* action) {
-    return visitContextAction(action);
+    return visitContextAction(action, "return nullptr;");
 }
 
 bool CppCodeGenerator::isExtendedBNF(const Grammar& grammar) const {

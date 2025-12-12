@@ -11,8 +11,8 @@ int main() {
         // Тест 1: Парсинг простой грамматики
         {
             std::string simple_bnf = R"(
-                expr ::= term '+' term
-                term ::= 'x' | 'y'
+                expr ::= term '+' term;
+                term ::= 'x' | 'y';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(simple_bnf);
@@ -25,8 +25,8 @@ int main() {
         // Тест 2: EBNF конструкции
         {
             std::string ebnf = R"(
-                list ::= '[' [ element { ',' element } ] ']'
-                element ::= 'a'..'z'+
+                list ::= '[' [ element { ',' element } ] ']';
+                element ::= 'a'..'z'+;
             )";
             
             auto grammar = BNFGrammarFactory::fromString(ebnf);
@@ -53,8 +53,8 @@ int main() {
         // Тест 4: Валидация грамматики
         {
             std::string valid_bnf = R"(
-                start ::= 'hello' end
-                end ::= 'world'
+                start ::= 'hello' end;
+                end ::= 'world';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(valid_bnf);
@@ -66,7 +66,7 @@ int main() {
         // Тест 5: Обнаружение неопределённых нетерминалов
         {
             std::string invalid_bnf = R"(
-                start ::= undefined_rule
+                start ::= undefined_rule;
             )";
             
             // Фабрика бросает исключение при невалидной грамматике
@@ -106,7 +106,7 @@ int main() {
         // Тест 8: Получение нетерминалов и терминалов
         {
             std::string bnf = R"(
-                expr ::= 'x' '+' 'y'
+                expr ::= 'x' '+' 'y';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(bnf);

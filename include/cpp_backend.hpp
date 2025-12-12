@@ -48,24 +48,53 @@ public:
     }
 
 protected:
-    // Реализация visitor методов для AST узлов
-    std::string visitTerminal(const Terminal* node) override;
-    std::string visitNonTerminal(const NonTerminal* node) override;
-    std::string visitCharRange(const CharRange* node) override;
-    std::string visitAlternative(const Alternative* node) override;
-    std::string visitSequence(const Sequence* node) override;
-    std::string visitGroup(const Group* node) override;
-    std::string visitOptional(const Optional* node) override;
-    std::string visitZeroOrMore(const ZeroOrMore* node) override;
-    std::string visitOneOrMore(const OneOrMore* node) override;
+    // Реализация visitor методов для AST узлов (с действием при ошибке)
+    std::string visitTerminal(const Terminal* node, const std::string& on_failure_action);
+    std::string visitNonTerminal(const NonTerminal* node, const std::string& on_failure_action);
+    std::string visitCharRange(const CharRange* node, const std::string& on_failure_action);
+    std::string visitAlternative(const Alternative* node, const std::string& on_failure_action);
+    std::string visitSequence(const Sequence* node, const std::string& on_failure_action);
+    std::string visitGroup(const Group* node, const std::string& on_failure_action);
+    std::string visitOptional(const Optional* node, const std::string& on_failure_action);
+    std::string visitZeroOrMore(const ZeroOrMore* node, const std::string& on_failure_action);
+    std::string visitOneOrMore(const OneOrMore* node, const std::string& on_failure_action);
     
     // Extended BNF visitor методы
-    std::string visitContextAction(const ContextAction* node);
+    std::string visitContextAction(const ContextAction* node, const std::string& on_failure_action);
     
     // Генерация функций для правил
     std::string generateRuleFunction(const ProductionRule& rule) override;
 
 private:
+    // Реализация чисто виртуальных методов из CodeGenerator
+    std::string visitTerminal(const Terminal* node) override { 
+        return visitTerminal(node, "return nullptr;"); 
+    }
+    std::string visitNonTerminal(const NonTerminal* node) override {
+        return visitNonTerminal(node, "return nullptr;");
+    }
+    std::string visitCharRange(const CharRange* node) override {
+        return visitCharRange(node, "return nullptr;");
+    }
+    std::string visitAlternative(const Alternative* node) override {
+        return visitAlternative(node, "return nullptr;");
+    }
+    std::string visitSequence(const Sequence* node) override {
+        return visitSequence(node, "return nullptr;");
+    }
+    std::string visitGroup(const Group* node) override {
+        return visitGroup(node, "return nullptr;");
+    }
+    std::string visitOptional(const Optional* node) override {
+        return visitOptional(node, "return nullptr;");
+    }
+    std::string visitZeroOrMore(const ZeroOrMore* node) override {
+        return visitZeroOrMore(node, "return nullptr;");
+    }
+    std::string visitOneOrMore(const OneOrMore* node) override {
+        return visitOneOrMore(node, "return nullptr;");
+    }
+
     // Генерация различных частей парсера
     std::string generateHeader();
     std::string generateIncludes();
@@ -97,7 +126,7 @@ private:
     std::string generateInlineCode(const ASTNode* node);
     
     // Обобщённый метод визитации узлов
-    std::string visitNode(const ASTNode* node);
+    std::string visitNode(const ASTNode* node, const std::string& on_failure_action);
     
     // Extended BNF методы
     std::string generateParameterizedFunction(const ProductionRule& rule);

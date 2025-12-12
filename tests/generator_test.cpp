@@ -29,8 +29,8 @@ int main() {
         // Тест 3: Генерация кода из простой грамматики
         {
             std::string simple_bnf = R"(
-                expr ::= term '+' term
-                term ::= 'x' | 'y'
+                expr ::= term '+' term;
+                term ::= 'x' | 'y';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(simple_bnf);
@@ -50,7 +50,7 @@ int main() {
         // Тест 4: Генерация с namespace
         {
             std::string bnf = R"(
-                start ::= 'hello' 'world'
+                start ::= 'hello' 'world';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(bnf);
@@ -69,8 +69,8 @@ int main() {
         // Тест 5: EBNF конструкции
         {
             std::string ebnf = R"(
-                list ::= '[' [ element { ',' element } ] ']'
-                element ::= 'a'..'z'+
+                list ::= '[' [ element { ',' element } ] ']';
+                element ::= 'a'..'z'+;
             )";
             
             auto grammar = BNFGrammarFactory::fromString(ebnf);
@@ -93,7 +93,7 @@ int main() {
         // Тест 6: Генерация с отладочным режимом
         {
             std::string bnf = R"(
-                expr ::= 'x'
+                expr ::= 'x';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(bnf);
@@ -110,7 +110,7 @@ int main() {
         // Тест 7: Проверка AST классов в сгенерированном коде
         {
             std::string bnf = R"(
-                start ::= 'test'
+                start ::= 'test';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(bnf);
@@ -130,7 +130,7 @@ int main() {
         // Тест 8: Обработка ошибок валидации
         {
             std::string invalid_bnf = R"(
-                start ::= undefined_rule
+                start ::= undefined_rule;
             )";
             
             // Фабрика бросает исключение при невалидной грамматике
@@ -162,7 +162,7 @@ int main() {
         // Тест 10: Проверка сообщений и предупреждений
         {
             std::string bnf = R"(
-                expr ::= 'x' | 'y'
+                expr ::= 'x' | 'y';
             )";
             
             auto grammar = BNFGrammarFactory::fromString(bnf);

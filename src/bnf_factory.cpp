@@ -161,16 +161,12 @@ hex_digit ::= digit | 'a'..'f' | 'A'..'F'
 }
 
 std::unique_ptr<Grammar> BNFGrammarFactory::createArithmeticGrammar() {
-    const std::string arithmeticBNF = R"(
-# Simple Arithmetic Expression Grammar
-expression ::= term (('+' | '-') term)*
-term ::= factor (('*' | '/') factor)*
-factor ::= number | '(' expression ')'
-number ::= digit+
-digit ::= '0'..'9'
-)";
-    
-    return fromString(arithmeticBNF);
+    return fromString(R"(
+        expr   ::= term { ('+' | '-') term };
+        term   ::= factor { ('*' | '/') factor };
+        factor ::= NUMBER | '(' expr ')';
+        NUMBER ::= ('0'..'9')+;
+    )");
 }
 
 std::unique_ptr<Grammar> BNFGrammarFactory::createIdentifierGrammar() {

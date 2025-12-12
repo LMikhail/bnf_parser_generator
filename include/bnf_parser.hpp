@@ -31,6 +31,7 @@ enum class TokenType {
     COLON,          // : (для типов параметров)
     ACTION_OPEN,    // { (начало контекстного действия)
     ACTION_CLOSE,   // } (конец контекстного действия)
+    SEMICOLON,      // ;
     COMMENT,        // # комментарий
     NEWLINE,        // \n
     EOF_TOKEN,      // конец файла
@@ -114,6 +115,7 @@ private:
     std::unique_ptr<ASTNode> parseSequence();
     std::unique_ptr<ASTNode> parseFactor();
     std::unique_ptr<ASTNode> parsePrimary();
+    std::unique_ptr<ASTNode> parseTerminalOrCharRange();
     
     // Утилиты
     bool match(TokenType type);
