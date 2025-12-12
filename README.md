@@ -9,66 +9,37 @@ Working implementation. Generator supports full EBNF syntax and produces functio
 Currently implemented:
 - C++ code generation (header + implementation)
 - Full EBNF support (alternatives, sequences, repetitions, optionals, groups, character ranges)
-- Full Unicode support (UTF-8, codepoint ranges U+0000 to U+10FFFF)
 - Standalone executable generation with CLI
 - Library generation (static/shared)
 - Recursive descent parsing with backtracking
-- Automatic parser naming from grammar files
 
 ## Usage
 
 ### Generate Parser
 
 ```bash
-# Generate parser source code (auto-names from grammar file)
-./out/debug/shared/bnf-parser-gen -i grammars/json.bnf
+# Generate parser source code
+bnf-parser-gen -i grammar.bnf -o MyParser.cpp
 
 # Generate with standalone executable
-./out/debug/shared/bnf-parser-gen -i grammars/json.bnf --executable
+bnf-parser-gen -i grammar.bnf -o MyParser.cpp --executable
 
-# Specify custom output directory
-./out/debug/shared/bnf-parser-gen -i grammars/json.bnf --output-dir my_parsers/json
-
-# Use custom parser name
-./out/debug/shared/bnf-parser-gen -i grammars/json.bnf --name MyJsonParser
-
-# Generate with verbose output
-./out/debug/shared/bnf-parser-gen -i grammars/json.bnf --executable --verbose
+# Generate with custom namespace
+bnf-parser-gen -i grammar.bnf -o MyParser.cpp --namespace myparser
 ```
-
-Output structure:
-- Source only: `generated/<grammar_name>/exec/release/<parser_name>.cpp`
-- With executable: `generated/<grammar_name>/exec/release/<parser_name>.cpp` and `<parser_name>_main.cpp`
 
 ### Compile Generated Parser
 
 ```bash
-# Example: compile JSON parser as executable
-cd generated/json/exec/release
-g++ -std=c++17 -o json_parser json_parser_main.cpp json_parser.cpp
+# Compile as executable
+g++ -std=c++17 -o my_parser MyParser_main.cpp MyParser.cpp
 
 # Compile as shared library
-g++ -std=c++17 -shared -fPIC -o libjson_parser.so json_parser.cpp
+g++ -std=c++17 -shared -fPIC -o libMyParser.so MyParser.cpp
 
 # Compile as static library
-g++ -std=c++17 -c json_parser.cpp -o json_parser.o
-ar rcs libjson_parser.a json_parser.o
-```
-
-### Run Generated Parser
-
-```bash
-# Parse a file with generated parser
-./json_parser examples/test.json
-
-# Show AST structure
-./json_parser examples/test.json --ast
-
-# Verbose parsing output
-./json_parser examples/test.json --verbose
-
-# Show help
-./json_parser --help
+g++ -std=c++17 -c MyParser.cpp -o MyParser.o
+ar rcs libMyParser.a MyParser.o
 ```
 
 ### Use Generated Parser
@@ -91,17 +62,10 @@ int main() {
 
 ## Example Grammars
 
-The project includes complete reference grammars in `grammars/` directory:
-- `json.bnf` - Full JSON specification with Unicode support
-- `prolog.bnf` - Prolog logic programming language (facts, rules, queries)
-- `clojure.bnf` - Clojure/EDN data notation with all data structures
-
-Test files with comprehensive coverage are provided in `examples/`:
-- `examples/test.json` - JSON with Unicode, escapes, nested structures, all number formats
-- `examples/test.pl` - Prolog with Unicode comments, facts, rules, lists, terms
-- `examples/test.clj` - Clojure with all data types, functions, macros, reader literals
-
-All grammars use pure EBNF with full Unicode support (U+0000 to U+10FFFF) and are ready for parsing real-world code.
+The project includes reference grammars in `grammars/` directory:
+- `json.bnf` - JSON data format
+- `prolog.bnf` - Prolog logic programming language
+- `clojure.bnf` - Clojure/EDN data notation
 
 ## Building
 
@@ -145,12 +109,9 @@ deps = [ "//deps/bnf_parser_generator:bnf_parser_generator" ]
 - Generates standalone parsers from BNF/EBNF grammars
 - C++ code generation (C++17 standard)
 - Full EBNF syntax support (alternatives, sequences, repetitions, optionals, groups, character ranges)
-- Complete Unicode support (UTF-8, full range U+0000 to U+10FFFF)
 - Generated parsers have no runtime dependencies
 - Recursive descent parsing with backtracking
 - Multiple output formats: source code, static library, shared library, executable
-- Automatic parser naming from grammar files (e.g., `json.bnf` → `json_parser.cpp`)
-- CLI tool with command-line argument parsing (--ast, --verbose, --help)
 - Cross-platform: Linux, macOS, Windows
 - Full test suite included
 - CI/CD configured (GitHub Actions, GitLab CI)
@@ -192,4 +153,4 @@ cd bnf_parser_generator
 
 ## License
 
-This project is licensed under the Apache 2.0 License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.

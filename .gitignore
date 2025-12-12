@@ -13,6 +13,8 @@ build/
 # IDE and editor files
 .vscode/
 .idea/
+.clj-kondo/
+.lsp/
 *.swp
 *.swo
 *~
@@ -30,6 +32,7 @@ Thumbs.db
 *.tmp
 *.temp
 *.log
+.tmp/
 
 # Russian documentation (source files, not tracked in Git)
 docs/ru/
