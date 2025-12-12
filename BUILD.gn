@@ -22,7 +22,7 @@ action("generate_version") {
 config("bnf_parser_generator_config") {
   include_dirs = [ "include" ]
   cflags_cc = [
-    "-std=c++17",
+    "-std=c++20",
     "-Wall",
     "-Wextra",
     "-Wpedantic",

@@ -32,13 +32,13 @@ bnf-parser-gen -i grammar.bnf -o MyParser.cpp --namespace myparser
 
 ```bash
 # Compile as executable
-g++ -std=c++17 -o my_parser MyParser_main.cpp MyParser.cpp
+g++ -std=c++20 -o my_parser MyParser_main.cpp MyParser.cpp
 
 # Compile as shared library
-g++ -std=c++17 -shared -fPIC -o libMyParser.so MyParser.cpp
+g++ -std=c++20 -shared -fPIC -o libMyParser.so MyParser.cpp
 
 # Compile as static library
-g++ -std=c++17 -c MyParser.cpp -o MyParser.o
+g++ -std=c++20 -c MyParser.cpp -o MyParser.o
 ar rcs libMyParser.a MyParser.o
 ```
 
@@ -107,7 +107,7 @@ deps = [ "//deps/bnf_parser_generator:bnf_parser_generator" ]
 ## Features
 
 - Generates standalone parsers from BNF/EBNF grammars
-- C++ code generation (C++17 standard)
+- C++ code generation (C++20 standard)
 - Full EBNF syntax support (alternatives, sequences, repetitions, optionals, groups, character ranges)
 - Generated parsers have no runtime dependencies
 - Recursive descent parsing with backtracking
@@ -120,7 +120,7 @@ deps = [ "//deps/bnf_parser_generator:bnf_parser_generator" ]
 ## Development
 
 ### Prerequisites
-- C++17 compatible compiler (GCC, Clang, MSVC)
+- C++20 compatible compiler (GCC, Clang, MSVC)
 - GN build system
 - Ninja build tool
 

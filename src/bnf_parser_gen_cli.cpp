@@ -54,11 +54,11 @@ void printHelp(const char* program_name) {
     std::cout << "  # Generate with standalone executable:\n";
     std::cout << "  " << program_name << " -i json.bnf -o JsonParser.cpp --executable\n\n";
     std::cout << "  # Compile generated parser as executable:\n";
-    std::cout << "  g++ -std=c++17 -o json_parser JsonParser_main.cpp JsonParser.cpp\n\n";
+    std::cout << "  g++ -std=c++20 -o json_parser JsonParser_main.cpp JsonParser.cpp\n\n";
     std::cout << "  # Compile as shared library:\n";
-    std::cout << "  g++ -std=c++17 -shared -fPIC -o libJsonParser.so JsonParser.cpp\n\n";
+    std::cout << "  g++ -std=c++20 -shared -fPIC -o libJsonParser.so JsonParser.cpp\n\n";
     std::cout << "  # Compile as static library:\n";
-    std::cout << "  g++ -std=c++17 -c JsonParser.cpp -o JsonParser.o\n";
+    std::cout << "  g++ -std=c++20 -c JsonParser.cpp -o JsonParser.o\n";
     std::cout << "  ar rcs libJsonParser.a JsonParser.o\n";
     std::cout << "  " << program_name << " -i calc.bnf -o calculator.cpp --namespace calc --verbose\n";
     std::cout << "  " << program_name << " -i json.bnf --executable --name JsonParser\n";
