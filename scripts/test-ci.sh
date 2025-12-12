@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Скрипт для локального тестирования CI/CD pipeline
-# Имитирует основные этапы CI/CD без внешних сервисов
+# Local CI/CD pipeline test
+# Emulates main CI/CD stages without external services
 
 set -e
 
-# Цвета для вывода
+# Output colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -28,9 +28,9 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Проверка зависимостей
+# Dependency check
 check_dependencies() {
-    print_info "🔍 Проверка зависимостей..."
+    print_info "🔍 Checking dependencies..."
     
     local missing_deps=()
     
@@ -51,52 +51,52 @@ check_dependencies() {
     fi
     
     if [ ${#missing_deps[@]} -ne 0 ]; then
-        print_error "Отсутствуют зависимости: ${missing_deps[*]}"
-        print_info "Установите их командой:"
+        print_error "Missing dependencies: ${missing_deps[*]}"
+        print_info "Install with:"
         print_info "sudo apt-get install -y ${missing_deps[*]}"
         exit 1
     fi
     
-    print_success "Все зависимости установлены"
+    print_success "All dependencies are installed"
 }
 
-# Проверка качества кода
+# Code quality checks
 lint_check() {
-    print_info "🔍 Проверка качества кода..."
+    print_info "🔍 Running code quality checks..."
     
-    # Проверка стиля кода
-    print_info "Проверка файлов C++..."
+    # Basic C++ file presence check
+    print_info "Checking C++ files..."
     find src include -name "*.cpp" -o -name "*.hpp" | head -5 | while read file; do
         if [ -f "$file" ]; then
             echo "  ✓ $file"
         fi
     done
     
-    # Проверка формата коммитов
-    print_info "Проверка формата коммитов..."
+    # Commit format check
+    print_info "Checking commit format..."
     if git log --format="%s" -1 | grep -E "^(feat|fix|docs|style|refactor|test|build|chore)(\(.+\))?: .+" > /dev/null; then
-        print_success "Формат коммита корректен"
+        print_success "Commit format looks good"
     else
-        print_warning "Формат коммита может быть улучшен"
+        print_warning "Commit format may need improvement"
     fi
     
-    # Проверка DCO
-    print_info "Проверка DCO..."
+    # DCO check
+    print_info "Checking DCO..."
     if git log --format='%H %s' -1 | grep -q 'Signed-off-by:'; then
-        print_success "DCO проверка пройдена"
+        print_success "DCO check passed"
     else
-        print_warning "Коммит не подписан (DCO)"
+        print_warning "Commit is not signed (DCO)"
     fi
     
-    print_success "Проверка качества кода завершена"
+    print_success "Code quality checks finished"
 }
 
-# Сборка проекта
+# Build project
 build_project() {
     local build_type=$1
-    print_info "🔨 Сборка $build_type версии..."
+    print_info "🔨 Building $build_type..."
     
-    # Создаем директорию и args.gn
+    # Create directory and args.gn
     mkdir -p out/$build_type
     cat > out/$build_type/args.gn << EOF
 is_debug = $([ "$build_type" = "debug" ] && echo "true" || echo "false")
@@ -105,97 +105,97 @@ bnf_parser_generator_enable_tests = true
 bnf_parser_generator_enable_examples = true
 EOF
     
-    # Генерируем build файлы
+    # Generate build files
     gn gen out/$build_type
     
-    # Собираем проект
+    # Build
     ninja -C out/$build_type all
     
-    print_success "Сборка $build_type завершена"
+    print_success "$build_type build completed"
 }
 
-# Тестирование
+# Testing
 run_tests() {
     local build_type=$1
-    print_info "🧪 Запуск тестов для $build_type..."
+    print_info "🧪 Running tests for $build_type..."
     
-    # Unit тесты
+    # Unit tests
     if [ -f "out/$build_type/basic_test" ]; then
-        print_info "Запуск basic_test..."
-        out/$build_type/basic_test || print_warning "basic_test завершился с предупреждениями"
+        print_info "Running basic_test..."
+        out/$build_type/basic_test || print_warning "basic_test finished with warnings"
     fi
     
-    # Тестирование примеров
+    # Example tests
     if [ -f "out/$build_type/simple_demo" ]; then
-        print_info "Тестирование simple_demo..."
-        out/$build_type/simple_demo || print_warning "simple_demo завершился с предупреждениями"
+        print_info "Testing simple_demo..."
+        out/$build_type/simple_demo || print_warning "simple_demo finished with warnings"
     fi
     
-    # Тестирование отладочных программ
+    # Debug utilities
     for debug_prog in out/$build_type/debug_*; do
         if [ -f "$debug_prog" ] && [ -x "$debug_prog" ]; then
-            print_info "Тестирование $(basename $debug_prog)..."
-            $debug_prog || print_warning "$(basename $debug_prog) завершился с предупреждениями"
+            print_info "Testing $(basename $debug_prog)..."
+            $debug_prog || print_warning "$(basename $debug_prog) finished with warnings"
         fi
     done
     
-    print_success "Тестирование $build_type завершено"
+    print_success "$build_type tests finished"
 }
 
-# Создание артефактов
+# Create artifacts
 create_artifacts() {
     local build_type=$1
-    print_info "Создание артефактов для $build_type..."
+    print_info "Creating artifacts for $build_type..."
     
-    # Создаем директорию для артефактов
+    # Artifact directory
     mkdir -p artifacts/$build_type
     
-    # Копируем собранные файлы
+    # Copy build outputs
     cp -r out/$build_type/* artifacts/$build_type/ 2>/dev/null || true
     
-    # Копируем документацию
+    # Copy docs
     cp -r docs/ artifacts/ 2>/dev/null || true
     cp README.md artifacts/ 2>/dev/null || true
     
-    # Создаем архив
+    # Create archive
     VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
     tar -czf bnf-parser-${VERSION}-${build_type}.tar.gz artifacts/
     
-    print_success "Артефакты созданы: bnf-parser-${VERSION}-${build_type}.tar.gz"
+    print_success "Artifacts created: bnf-parser-${VERSION}-${build_type}.tar.gz"
 }
 
-# Основная функция
+# Entry point
 main() {
-    print_info "Запуск локального тестирования CI/CD pipeline"
+    print_info "Starting local CI/CD pipeline test"
     
-    # Проверяем что мы в корне проекта
+    # Ensure we are in project root
     if [ ! -f "BUILD.gn" ]; then
-        print_error "Запустите скрипт из корня проекта"
+        print_error "Run this script from the project root"
         exit 1
     fi
     
-    # Этапы CI/CD
+    # CI/CD stages
     check_dependencies
     lint_check
     
-    # Сборка debug и release
+    # Build debug and release
     build_project debug
     build_project release
     
-    # Тестирование
+    # Testing
     run_tests debug
     run_tests release
     
-    # Создание артефактов
+    # Artifacts
     create_artifacts debug
     create_artifacts release
     
-    print_success "Локальное тестирование CI/CD завершено успешно"
-    print_info "Артефакты созданы в текущей директории"
+    print_success "Local CI/CD testing completed successfully"
+    print_info "Artifacts created in current directory"
     ls -la *.tar.gz 2>/dev/null || true
 }
 
-# Обработка аргументов
+# Arguments handling
 case "${1:-}" in
     "lint")
         check_dependencies
@@ -212,22 +212,22 @@ case "${1:-}" in
         create_artifacts ${2:-debug}
         ;;
     "help"|"-h"|"--help")
-        echo "Использование: $0 [команда] [тип_сборки]"
+        echo "Usage: $0 [command] [build_type]"
         echo ""
-        echo "Команды:"
-        echo "  lint      - проверка качества кода"
-        echo "  build     - сборка проекта"
-        echo "  test      - запуск тестов"
-        echo "  artifacts - создание артефактов"
-        echo "  help      - показать эту справку"
+        echo "Commands:"
+        echo "  lint      - run code quality checks"
+        echo "  build     - build project"
+        echo "  test      - run tests"
+        echo "  artifacts - create artifacts"
+        echo "  help      - show this help"
         echo ""
-        echo "Типы сборки: debug, release (по умолчанию: debug)"
+        echo "Build types: debug, release (default: debug)"
         echo ""
-        echo "Примеры:"
-        echo "  $0                    # полный pipeline"
-        echo "  $0 lint               # только проверка качества"
-        echo "  $0 build release       # только release сборка"
-        echo "  $0 test debug         # только тесты debug"
+        echo "Examples:"
+        echo "  $0                    # full pipeline"
+        echo "  $0 lint               # only quality checks"
+        echo "  $0 build release      # release build only"
+        echo "  $0 test debug         # debug tests only"
         ;;
     *)
         main

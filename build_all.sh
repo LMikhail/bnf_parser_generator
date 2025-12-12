@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Скрипт для сборки всех четырех вариантов библиотек
+# Builds all four library variants:
 # out/debug/shared, out/debug/static, out/release/shared, out/release/static
 
 set -e
 
-# Цвета для вывода
+# Output colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -28,10 +28,9 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
-print_info "Сборка всех вариантов BNF Parser библиотек..."
+print_info "Building all BNF Parser library variants..."
 
-# Массив вариантов для сборки
-# Формат: "build_type/library_type"
+# Variants list, format: "build_type/library_type"
 variants=(
     "debug/shared"
     "debug/static" 
@@ -39,13 +38,13 @@ variants=(
     "release/static"
 )
 
-# Функция для сборки одного варианта
+# Build a single variant
 build_variant() {
     local variant=$1
     local build_type=${variant%/*}
     local library_type=${variant#*/}
     
-    print_info "Сборка варианта: $variant (build: $build_type, library: $library_type)"
+    print_info "Building variant: $variant (build: $build_type, library: $library_type)"
     
     if [ "$build_type" = "debug" ]; then
         BUILD_CMD="./build.sh -d"
@@ -60,14 +59,14 @@ build_variant() {
     fi
     
     if $BUILD_CMD; then
-        print_success "✅ $variant собран успешно"
+        print_success "✅ $variant built successfully"
     else
-        print_error "Ошибка сборки $variant"
+        print_error "Build failed for $variant"
         return 1
     fi
 }
 
-# Собираем все варианты
+# Build all variants
 failed_variants=()
 for variant in "${variants[@]}"; do
     if ! build_variant "$variant"; then
@@ -75,19 +74,19 @@ for variant in "${variants[@]}"; do
     fi
 done
 
-# Итоговый отчет
+# Final report
 echo ""
-print_info "=== ИТОГОВЫЙ ОТЧЕТ ==="
+print_info "=== SUMMARY REPORT ==="
 
 if [ ${#failed_variants[@]} -eq 0 ]; then
-    print_success "Все варианты собраны успешно"
+    print_success "All variants built successfully"
     echo ""
-    print_info "Созданные библиотеки:"
+    print_info "Produced libraries:"
     find out/ -name "*.so" -o -name "*.a" | sort | while read lib; do
         echo "  $lib"
     done
 else
-    print_error "Ошибки при сборке следующих вариантов:"
+    print_error "Build errors for the following variants:"
     for variant in "${failed_variants[@]}"; do
         echo "  - $variant"
     done
@@ -95,5 +94,5 @@ else
 fi
 
 echo ""
-print_info "Структура директорий:"
+print_info "Directory structure:"
 ls -la out/ | grep "^d" | awk '{print "  📁 " $9}' | grep -v "^📁 \.$" | grep -v "^📁 \.\.$"

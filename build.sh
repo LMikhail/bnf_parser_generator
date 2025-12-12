@@ -1,18 +1,18 @@
 #!/bin/bash
 
 # BNF Parser Build Script
-# Поддерживает различные варианты сборки
+# Supports multiple build configurations
 
-set -e  # Остановка при ошибке
+set -e  # Stop on error
 
-# Цвета для вывода
+# Output colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Функция для вывода с цветом
+# Colored output helpers
 print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -29,39 +29,39 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Функция помощи
+# Help message
 show_help() {
     echo "BNF Parser Build Script"
     echo ""
-    echo "Использование: $0 [ОПЦИИ] [ЦЕЛЬ]"
+    echo "Usage: $0 [OPTIONS] [TARGET]"
     echo ""
-    echo "ОПЦИИ:"
-    echo "  -h, --help          Показать эту справку"
-    echo "  -d, --debug         Debug сборка (по умолчанию)"
-    echo "  -r, --release       Release сборка"
-    echo "  -c, --clean         Очистить выходные директории"
-    echo "  -v, --verbose       Подробный вывод"
-    echo "  --no-tests          Не собирать тесты"
-    echo "  --no-examples       Не собирать примеры"
-    echo "  --shared            Собрать динамическую библиотеку (по умолчанию)"
-    echo "  --static            Собрать статическую библиотеку"
+    echo "OPTIONS:"
+    echo "  -h, --help          Show this help"
+    echo "  -d, --debug         Debug build (default)"
+    echo "  -r, --release       Release build"
+    echo "  -c, --clean         Clean output directories"
+    echo "  -v, --verbose       Verbose ninja output"
+    echo "  --no-tests          Skip building tests"
+    echo "  --no-examples       Skip building examples"
+    echo "  --shared            Build shared library (default)"
+    echo "  --static            Build static library"
     echo ""
-    echo "ЦЕЛИ:"
-    echo "  all                 Собрать всё (по умолчанию)"
-    echo "  lib                 Только библиотека"
-    echo "  tests               Только тесты"
-    echo "  examples            Только примеры"
-    echo "  clean               Очистить всё"
+    echo "TARGETS:"
+    echo "  all                 Build everything (default)"
+    echo "  lib                 Library only"
+    echo "  tests               Tests only"
+    echo "  examples            Examples only"
+    echo "  clean               Clean everything"
     echo ""
-    echo "ПРИМЕРЫ:"
-    echo "  $0                  # Debug сборка всего"
-    echo "  $0 -r               # Release сборка всего"
-    echo "  $0 -d lib           # Debug сборка только библиотеки"
-    echo "  $0 -r --no-tests    # Release без тестов"
-    echo "  $0 clean            # Очистка"
+    echo "EXAMPLES:"
+    echo "  $0                  # Debug build of everything"
+    echo "  $0 -r               # Release build of everything"
+    echo "  $0 -d lib           # Debug build of library only"
+    echo "  $0 -r --no-tests    # Release build without tests"
+    echo "  $0 clean            # Clean"
 }
 
-# Параметры по умолчанию
+# Default parameters
 BUILD_TYPE="debug"
 TARGET="all"
 CLEAN=false
@@ -71,7 +71,7 @@ BUILD_EXAMPLES=true
 LIBRARY_TYPE="shared"
 NINJA_ARGS=""
 
-# Парсинг аргументов
+# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -116,36 +116,36 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            print_error "Неизвестная опция: $1"
-            echo "Используйте -h для справки"
+            print_error "Unknown option: $1"
+            echo "Use -h for help"
             exit 1
             ;;
     esac
 done
 
-# Определяем директории
+# Directories
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT_DIR="$PROJECT_ROOT/out/$BUILD_TYPE/$LIBRARY_TYPE"
 
 print_info "BNF Parser Build Script"
-print_info "Проект: $PROJECT_ROOT"
-print_info "Тип сборки: $BUILD_TYPE"
-print_info "Тип библиотеки: $LIBRARY_TYPE"
-print_info "Цель: $TARGET"
-print_info "Выходная директория: $OUT_DIR"
+print_info "Project: $PROJECT_ROOT"
+print_info "Build type: $BUILD_TYPE"
+print_info "Library type: $LIBRARY_TYPE"
+print_info "Target: $TARGET"
+print_info "Output dir: $OUT_DIR"
 
-# Функция очистки
+# Clean output
 clean_build() {
-    print_info "Очистка выходных директорий..."
+    print_info "Cleaning output directories..."
     rm -rf "$PROJECT_ROOT/out"
-    print_success "Очистка завершена"
+    print_success "Clean completed"
 }
 
-# Функция генерации build файлов
+# Generate build files
 generate_build() {
-    print_info "Генерация build файлов для $BUILD_TYPE..."
+    print_info "Generating build files for $BUILD_TYPE..."
     
-    # Создаем args.gn файл
+    # Create args.gn
     mkdir -p "$OUT_DIR"
     cat > "$OUT_DIR/args.gn" << EOF
 # Build arguments for $BUILD_TYPE build
@@ -156,25 +156,25 @@ bnf_parser_generator_enable_examples = $BUILD_EXAMPLES
 bnf_parser_generator_library_type = "$LIBRARY_TYPE"
 EOF
 
-    # Генерируем build файлы
+    # Generate build files
     cd "$PROJECT_ROOT"
     if ! gn gen "$OUT_DIR"; then
-        print_error "Ошибка генерации build файлов"
+        print_error "Failed to generate build files"
         exit 1
     fi
     
-    print_success "Build файлы сгенерированы"
+    print_success "Build files generated"
 }
 
-# Функция сборки
+# Build target
 build_target() {
     local build_target="$1"
     
-    print_info "Сборка цели: $build_target"
+    print_info "Building target: $build_target"
     
     cd "$PROJECT_ROOT"
     
-    # Определяем GN цели
+    # Map GN targets
     case $build_target in
         all)
             if [ "$BUILD_TESTS" = "true" ]; then
@@ -193,78 +193,78 @@ build_target() {
             GN_TARGET="examples"
             ;;
         *)
-            print_error "Неизвестная цель: $build_target"
+            print_error "Unknown target: $build_target"
             exit 1
             ;;
     esac
     
-    # Запускаем ninja
+    # Run ninja
     if ! ninja -C "$OUT_DIR" $NINJA_ARGS "$GN_TARGET"; then
-        print_error "Ошибка сборки"
+        print_error "Build failed"
         exit 1
     fi
     
-    print_success "Сборка завершена успешно"
+    print_success "Build completed successfully"
 }
 
-# Функция запуска тестов
+# Run tests
 run_tests() {
     if [ "$BUILD_TESTS" = "true" ]; then
-        print_info "Запуск тестов..."
+        print_info "Running tests..."
         
-        # Добавляем путь к библиотеке для shared library
+        # Add library path for shared builds
         export LD_LIBRARY_PATH="$OUT_DIR:$LD_LIBRARY_PATH"
         
         local all_passed=true
         
-        # Запускаем все тесты
+        # Run all tests
         for test_exe in "$OUT_DIR/basic_test" "$OUT_DIR/utf8_test" "$OUT_DIR/generator_test"; do
             if [ -f "$test_exe" ]; then
                 local test_name=$(basename "$test_exe")
-                print_info "Запуск $test_name..."
+                print_info "Running $test_name..."
                 if "$test_exe"; then
-                    print_success "$test_name прошел"
+                    print_success "$test_name passed"
                 else
-                    print_error "$test_name провалился"
+                    print_error "$test_name failed"
                     all_passed=false
                 fi
             fi
         done
         
         if [ "$all_passed" = "true" ]; then
-            print_success "Все тесты прошли"
+            print_success "All tests passed"
         else
-            print_error "Некоторые тесты провалились"
+            print_error "Some tests failed"
             exit 1
         fi
     fi
 }
 
-# Функция показа примеров
+# Show examples
 show_examples() {
     if [ "$BUILD_EXAMPLES" = "true" ]; then
-        print_info "Доступные примеры:"
+        print_info "Available examples:"
         if [ -f "$OUT_DIR/simple_demo" ]; then
             echo "  simple_demo"
-            print_info "Запустите пример: $OUT_DIR/simple_demo"
+            print_info "Run example: $OUT_DIR/simple_demo"
         fi
     fi
 }
 
-# Основная логика
+# Main logic
 main() {
-    # Проверяем наличие необходимых инструментов
+    # Check required tools
     if ! command -v gn &> /dev/null; then
-        print_error "gn не найден. Установите GN build system."
+        print_error "gn not found. Please install GN build system."
         exit 1
     fi
     
     if ! command -v ninja &> /dev/null; then
-        print_error "ninja не найден. Установите Ninja build system."
+        print_error "ninja not found. Please install Ninja build system."
         exit 1
     fi
     
-    # Выполняем действия
+    # Execute actions
     case $TARGET in
         clean)
             clean_build
@@ -288,8 +288,8 @@ main() {
             ;;
     esac
     
-    print_success "Готово"
+    print_success "Done"
 }
 
-# Запуск
+# Entry point
 main

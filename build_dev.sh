@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Инструменты разработчика для BNF Parser
+# Developer utilities for BNF Parser
 
 set -e
 
-# Цвета
+# Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
@@ -21,41 +21,41 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "$1" in
     "test"|"t")
-        print_info "Быстрая сборка и тест (debug)..."
+        print_info "Quick build and test (debug)..."
         "$PROJECT_ROOT/build.sh" -d tests
         ;;
     "release"|"r")
-        print_info "Release сборка..."
+        print_info "Release build..."
         "$PROJECT_ROOT/build.sh" -r
         ;;
     "debug"|"d")
-        print_info "Debug сборка..."
+        print_info "Debug build..."
         "$PROJECT_ROOT/build.sh" -d
         ;;
     "clean"|"c")
-        print_info "Очистка..."
+        print_info "Clean..."
         "$PROJECT_ROOT/build.sh" clean
         ;;
     "examples"|"e")
-        print_info "Сборка и запуск примеров..."
+        print_info "Build and run examples..."
         "$PROJECT_ROOT/build.sh" -d examples
         echo ""
-        print_info "Запуск simple_demo примера:"
+        print_info "Running simple_demo example:"
         "$PROJECT_ROOT/out/debug/shared/simple_demo"
         ;;
     "help"|"h"|"")
-        echo "Инструменты разработчика BNF Parser:"
+        echo "BNF Parser developer tools:"
         echo ""
-        echo "  ./build_dev.sh test      (t) - Быстрая сборка и тест"
-        echo "  ./build_dev.sh debug     (d) - Debug сборка"
-        echo "  ./build_dev.sh release   (r) - Release сборка"
-        echo "  ./build_dev.sh examples  (e) - Примеры"
-        echo "  ./build_dev.sh clean     (c) - Очистка"
-        echo "  ./build_dev.sh help      (h) - Эта справка"
+        echo "  ./build_dev.sh test      (t) - Quick build and test"
+        echo "  ./build_dev.sh debug     (d) - Debug build"
+        echo "  ./build_dev.sh release   (r) - Release build"
+        echo "  ./build_dev.sh examples  (e) - Examples"
+        echo "  ./build_dev.sh clean     (c) - Clean"
+        echo "  ./build_dev.sh help      (h) - This help"
         ;;
     *)
-        echo "Неизвестная команда: $1"
-        echo "Используйте './build_dev.sh help' для справки"
+        echo "Unknown command: $1"
+        echo "Use './build_dev.sh help' for usage"
         exit 1
         ;;
 esac
