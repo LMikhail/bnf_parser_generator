@@ -40,8 +40,13 @@ case "$1" in
         print_info "Build and run examples..."
         "$PROJECT_ROOT/build.sh" -d examples
         echo ""
-        print_info "Running simple_demo example:"
-        "$PROJECT_ROOT/out/debug/shared/simple_demo"
+        EXE="$PROJECT_ROOT/out/debug/shared/simple_demo"
+        if [ -x "$EXE" ]; then
+            print_info "Running simple_demo example:"
+            "$EXE"
+        else
+            print_info "Example binary not found (skipping run): $EXE"
+        fi
         ;;
     "help"|"h"|"")
         echo "BNF Parser developer tools:"

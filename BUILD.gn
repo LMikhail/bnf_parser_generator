@@ -125,7 +125,7 @@ if (bnf_parser_generator_enable_tests) {
 
 # Примеры (если включены)
 if (bnf_parser_generator_enable_examples) {
-  # Пока только демонстрационный пример
+  # Placeholder: add example targets here when available
 }
 
 # Группы для удобства
